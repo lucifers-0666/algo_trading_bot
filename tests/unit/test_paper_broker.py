@@ -15,6 +15,8 @@ from trader.risk.checks import RiskManager
 def broker():
     with tempfile.TemporaryDirectory() as tmpdir:
         ks = PersistentKillSwitch(state_file=Path(tmpdir) / "ks.state")
+        # Paper-broker unit tests explicitly model an operator reset before trading.
+        ks.deactivate("Test fixture explicit reset")
         rm = RiskManager(kill_switch=ks)
         b = VirtualPaperBroker(risk_manager=rm, slippage_bps=0.0)
         yield b
