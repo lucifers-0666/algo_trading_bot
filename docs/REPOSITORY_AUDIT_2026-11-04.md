@@ -180,3 +180,40 @@ This audit is based on repository source and documentation fetched from GitHub. 
 6. Run walk-forward paper simulation with licensed data and realistic costs; only then assess whether any strategy has evidence of an edge.
 
 **No live broker execution should be added.**
+
+
+## Additional high-priority findings confirmed during remediation
+
+### P0 — Missing kill-switch state was not actually fail-closed (patched on review branch)
+
+`src/trader/risk/kill_switch.py` previously created a missing state file with `active:false` in the constructor. That meant the later `_read_state()` missing-file fail-closed branch could never protect a normal first startup. The review branch now initializes a missing state as `active:true`, adds a regression test, and removes the tracked `config/kill_switch.state` runtime file. A deliberate operator reset is now required before paper orders can proceed after first initialization.
+
+### P0 — Caller-supplied order quantity could exceed risk-approved quantity (patched on review branch)
+
+`src/trader/paper/broker.py` previously used `quantity or assessment.approved_quantity`. A caller could pass a larger positive quantity after the risk manager approved a smaller size, and the larger value was used for the simulated fill. The review branch now permits a caller to reduce an approved quantity but rejects zero/negative or larger-than-approved quantities, with a regression test.
+
+### P1 — Paper positions are not restored from persistence
+
+`PortfolioAccountant.__init__` restores cash, reserved margin, realized P&L and peak equity from the latest portfolio snapshot, but does not restore open positions. The SQLite schema/snapshot fields shown in the current implementation only preserve the open-position count, not per-symbol quantity, cost basis and current mark. After process restart, a prior open position can therefore disappear from the in-memory ledger while its cash deduction remains. Implement a durable positions table or deterministic replay of persisted fills before calling the account restart-safe.
+
+### P1 — Daily-loss rule is based on starting capital, not start-of-day equity
+
+`RiskManager.assess_order` computes `starting_cash - portfolio.total_equity` and compares it to the daily-loss threshold. This is cumulative loss relative to the account's original starting cash, not loss from the current trading day's opening equity. Add a persisted per-session start-of-day equity value and reset it using a real NSE trading calendar. Keep maximum drawdown as a separate lifetime/peak metric.
+
+### P1 — NSE session/freshness logic omits exchange holidays and special sessions
+
+`data/freshness.py` currently checks only Monday-Friday and fixed 09:15-15:30 IST. Use a maintained exchange calendar or a documented holiday/special-session source; do not classify a holiday as an active trading session or treat a special session as a normal day.
+
+## Changes made on review branch
+
+The following work has been added on `review/react-frontend-quant-reliability`, not directly to `main`:
+- Repository audit, React migration plan and quantitative reliability roadmap documents.
+- A React + TypeScript + Vite responsive dashboard scaffold with a neutral light theme and restrained emerald accent.
+- A minimal FastAPI local health/status API; it explicitly reports the market feed as not configured and exposes no order-routing endpoint.
+- FastAPI test-client dependency and basic health/status API tests.
+- README correction: removes “production-grade” implication, removes machine-specific path and documents actual React/API setup.
+- `.gitignore` additions for node_modules, frontend build outputs, TypeScript build info, Python build artifacts and local kill-switch state.
+- Removed tracked Python `egg-info` build artifacts and tracked runtime kill-switch state.
+- Fixed kill-switch missing-state initialization and paper-broker explicit quantity override, with regression tests.
+
+The React route views other than the overview are intentionally placeholders. There are no integrated scanner/backtest/ML/portfolio API read models yet. This is a frontend foundation, not a completed React migration. No local Python tests, npm typecheck or production build were run by this remote GitHub review.
