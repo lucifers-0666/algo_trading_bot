@@ -158,8 +158,33 @@ class VirtualPaperBroker:
             timestamp=now_ist,
         )
 
-        # 4. Apply fill to virtual portfolio ledger
-        self.accountant.apply_fill(trade)
+        # 4. Apply fill to virtual portfolio ledger. The accountant performs
+        # final cash/inventory validation before mutating the simulated account.
+        try:
+            self.accountant.apply_fill(trade)
+        except ValueError as exc:
+            reason = f"Virtual fill rejected: {exc}"
+            assessment.approved = False
+            assessment.rejection_reasons.append(reason)
+            self.order_manager.update_status(
+                order.order_id,
+                OrderStatus.REJECTED,
+                rejection_reason=reason,
+            )
+            order.status = OrderStatus.REJECTED
+            order.rejection_reason = reason
+            if self.audit_repo:
+                self.audit_repo.log_event(
+                    event_type="ORDER_REJECTED",
+                    symbol=sym,
+                    details={
+                        "order_id": order.order_id,
+                        "side": side.value,
+                        "reason": reason,
+                    },
+                )
+            logger.warning("Simulated order %s REJECTED: %s", order.order_id, reason)
+            return order, None, assessment
 
         if self.trade_repo:
             self.trade_repo.save_trade(trade)
