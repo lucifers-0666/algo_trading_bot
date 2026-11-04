@@ -9,6 +9,7 @@ import numpy as np
 import pytz
 
 from trader.domain.models import Candle, DataSource, Timeframe, IST
+from trader.data.calendar import default_nse_calendar
 
 DEFAULT_NSE_UNIVERSE = {
     "RELIANCE": {"initial_price": 2850.0, "daily_vol": 0.016, "avg_volume": 4500000},
@@ -25,7 +26,7 @@ DEFAULT_NSE_UNIVERSE = {
 
 
 def get_trading_days(num_days: int, end_date: Optional[datetime] = None) -> List[datetime]:
-    """Generates a list of valid weekday trading dates ending at end_date."""
+    """Generates a list of valid NSE trading dates ending at end_date."""
     if end_date is None:
         end_date = datetime.now(IST)
     elif end_date.tzinfo is None:
@@ -38,8 +39,7 @@ def get_trading_days(num_days: int, end_date: Optional[datetime] = None) -> List
     days = []
 
     while len(days) < num_days:
-        # 0=Monday, ..., 4=Friday, 5=Saturday, 6=Sunday
-        if current.weekday() < 5:
+        if default_nse_calendar.is_trading_day(current.date()):
             days.append(current)
         current -= timedelta(days=1)
 
@@ -57,9 +57,8 @@ def generate_synthetic_candles(
     trend_bias: float = 0.0004, # Slight upward annual drift
     interval: Timeframe = Timeframe.DAILY,
 ) -> List[Candle]:
-    """Generates a chronological series of synthetic OHLCV candles for an NSE stock."""
-    if seed is not None:
-        np.random.seed(seed)
+    """Generates a chronological series of synthetic OHLCV candles for an NSE stock using local RNG."""
+    rng = np.random.default_rng(seed)
 
     meta = DEFAULT_NSE_UNIVERSE.get(
         symbol.upper(),
@@ -75,13 +74,13 @@ def generate_synthetic_candles(
     current_close = p0
 
     for dt in dates:
-        # Log-normal daily return
-        daily_ret = np.random.normal(loc=trend_bias, scale=sigma)
+        # Log-normal daily return using local RNG
+        daily_ret = float(rng.normal(loc=trend_bias, scale=sigma))
         # Cap extreme single-day jump within +/- 10% circuit limit
-        daily_ret = np.clip(daily_ret, -0.098, 0.098)
+        daily_ret = float(np.clip(daily_ret, -0.098, 0.098))
 
         # Overnight gap between previous close and open
-        gap_ret = np.random.normal(loc=0.0, scale=sigma * 0.4)
+        gap_ret = float(rng.normal(loc=0.0, scale=sigma * 0.4))
         open_price = round(current_close * (1.0 + gap_ret), 2)
         open_price = max(1.0, open_price)
 
@@ -89,9 +88,9 @@ def generate_synthetic_candles(
         close_price = max(1.0, close_price)
 
         # High and Low based on intraday noise
-        intraday_vol = sigma * np.random.uniform(0.6, 1.4)
-        high_price = round(max(open_price, close_price) * (1.0 + abs(np.random.normal(0, intraday_vol))), 2)
-        low_price = round(min(open_price, close_price) * (1.0 - abs(np.random.normal(0, intraday_vol))), 2)
+        intraday_vol = sigma * float(rng.uniform(0.6, 1.4))
+        high_price = round(max(open_price, close_price) * (1.0 + abs(float(rng.normal(0, intraday_vol)))), 2)
+        low_price = round(min(open_price, close_price) * (1.0 - abs(float(rng.normal(0, intraday_vol)))), 2)
         low_price = max(0.5, low_price)
 
         # Ensure high >= low and bounds
@@ -100,7 +99,7 @@ def generate_synthetic_candles(
 
         # Volume modeling: higher volume on larger price moves
         move_magnitude = abs(daily_ret) / sigma
-        vol_multiplier = np.random.lognormal(mean=0.0, sigma=0.35) * (1.0 + 0.5 * move_magnitude)
+        vol_multiplier = float(rng.lognormal(mean=0.0, sigma=0.35)) * (1.0 + 0.5 * move_magnitude)
         volume = float(round(base_vol * vol_multiplier))
         turnover = round(close_price * volume, 2)
 

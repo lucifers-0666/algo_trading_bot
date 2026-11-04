@@ -12,7 +12,12 @@ IST = pytz.timezone("Asia/Kolkata")
 
 
 class DataSource(str, Enum):
-    SYNTHETIC = "synthetic"
+    REAL_TIME = "REAL-TIME"
+    DELAYED = "DELAYED"
+    HISTORICAL = "HISTORICAL"
+    CACHED = "CACHED"
+    SYNTHETIC = "SYNTHETIC"
+    UNAVAILABLE = "UNAVAILABLE"
     CSV = "csv"
     TRUEDATA = "truedata"
 
