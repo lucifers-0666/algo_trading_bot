@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Activity, ArrowDownRight, ArrowUpRight, Bell, BrainCircuit, CandlestickChart,
-  ChevronDown, CircleHelp, Command, Database, FlaskConical, Gauge, LayoutDashboard,
+  Activity, ArrowUpRight, Bell, BrainCircuit, CandlestickChart,
+  ChevronDown, CircleHelp, Database, FlaskConical, Gauge, LayoutDashboard,
   ListFilter, Menu, Search, Settings2, ShieldCheck, SlidersHorizontal, Wallet,
   WifiOff, X,
 } from "lucide-react";
