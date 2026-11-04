@@ -20,14 +20,32 @@ class MarketScannerEngine:
     def __init__(self, provider: MarketDataProvider, symbols: Optional[List[str]] = None):
         self.provider = provider
         self.symbols = symbols or ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "TATAMOTORS", "BHARTIARTL", "ITC", "KOTAKBANK"]
+        self._metrics_cache: Dict[str, Optional[Dict[str, Any]]] = {}
+
+    def refresh_snapshot(self) -> None:
+        """Prefetches and computes indicators for all symbols into an in-memory snapshot cache."""
+        self._metrics_cache.clear()
+        for sym in self.symbols:
+            self._prepare_symbol_metrics(sym)
+
+    def clear_cache(self) -> None:
+        """Clears cached indicators and metric snapshots."""
+        self._metrics_cache.clear()
 
     def _prepare_symbol_metrics(self, symbol: str) -> Optional[Dict[str, Any]]:
-        candles = self.provider.get_historical_candles(symbol)
+        sym = symbol.strip().upper()
+        if sym in self._metrics_cache:
+            return self._metrics_cache[sym]
+
+        candles = self.provider.get_historical_candles(sym)
         if len(candles) < 25:
+            self._metrics_cache[sym] = None
             return None
         df = candles_to_dataframe(candles)
         df_ind = compute_all_indicators(df)
-        return scan_symbol_metrics(df_ind)
+        metrics = scan_symbol_metrics(df_ind)
+        self._metrics_cache[sym] = metrics
+        return metrics
 
     def scan_top_gainers(self, limit: int = 10) -> List[ScanCandidate]:
         candidates: List[ScanCandidate] = []
