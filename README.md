@@ -1,118 +1,87 @@
-# Indian Equity AI Paper Trading & Quantitative Research Platform
+# Indian Equity AI Paper Trader
 
-An auditable, reproducible, production-grade Python quantitative research and paper-trading platform engineered specifically for Indian Cash Equities (NSE).
+Quantitative research and paper-trading platform for Indian cash equities (initially NSE). The Python engine owns market-data processing, indicators, strategies, model inference, risk checks, backtesting and virtual-account accounting. A separate React application provides the dashboard.
 
-> **SAFETY NOTICE:**  
-> This platform is **strictly for quantitative research, backtesting, and paper trading**.  
-> It does **not** connect to real demat or broker accounts and does **not** route live money orders to any exchange.
+> **Safety boundary:** Research, backtesting and paper trading only. No real demat account integration or live broker order routing is implemented.
 
----
+## Current implementation status
 
-## 1. System Specifications & Pre-requisites
+This repository contains a Python research/paper-trading prototype, a React dashboard scaffold and a minimal local FastAPI health API. The React scanner, model lab, backtest and portfolio pages are not yet connected to tested backend read models. The TrueData adapter is a development placeholder and must not be treated as a verified live connection.
 
-- **Operating System:** Windows 10/11 (64-bit)
-- **Runtime:** Python 3.12 (Dedicated Virtual Environment `.venv`)
-- **Database:** SQLite 3 (Zero external database server required)
-- **Default Virtual Capital:** ₹10,000 INR
-- **Market Hours:** 09:15 to 15:30 IST (`Asia/Kolkata`)
+See:
+- [Project status](PROJECT_STATUS.md)
+- [Known limitations](KNOWN_LIMITATIONS.md)
+- [Repository audit](docs/REPOSITORY_AUDIT_2026-11-04.md)
+- [React migration plan](docs/FRONTEND_REACT_MIGRATION_PLAN.md)
+- [Quantitative reliability roadmap](docs/QUANT_RELIABILITY_ROADMAP.md)
+- [Provider comparison](docs/provider_comparison.md)
 
----
+## Backend setup (Windows PowerShell)
 
-## 2. Fast Setup (PowerShell on Windows)
-
-Open PowerShell in the project root (`d:\Algo trading`):
+Requirements: Python 3.12.
 
 ```powershell
-# 1. Create Python 3.12 Virtual Environment
-& "C:\Users\zaid amreliya\AppData\Local\Programs\Python\Python312\python.exe" -m venv .venv
-
-# 2. Activate Virtual Environment
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
-# 3. Upgrade pip and install pinned dependencies
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\pip.exe install -r requirements.txt
-
-# 4. Copy environment configuration
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
 Copy-Item .env.example .env
-
-# 5. Verify installation
-python -c "import pandas, numpy, sklearn, streamlit; print('All systems operational!')"
 ```
 
----
-
-## 3. Command Line Interface (CLI)
-
-The platform provides a CLI for managing data, running backtests, training ML models, and controlling the paper broker:
+Run tests:
 
 ```powershell
-# Validate a historical CSV file
-python -m trader.cli validate-data --file data/sample/nifty50_sample.csv
+pytest tests/ -q
+```
 
-# Run stock screener across universe
-python -m trader.cli scan --universe nse_top100
+Run the existing CLI:
 
-# Execute historical backtest
-python -m trader.cli backtest --strategy config/strategy.example.yaml
-
-# Train machine learning baseline model
-python -m trader.cli train --config config/ml.yaml
-
-# Evaluate model performance out-of-sample
-python -m trader.cli evaluate-model --model-id latest
-
-# Check paper trading portfolio status
+```powershell
+python -m trader.cli --help
 python -m trader.cli status
-
-# Manage emergency kill switch
-python -m trader.cli kill-switch on
-python -m trader.cli kill-switch off
+python -m trader.cli kill-switch status
 ```
 
----
-
-## 4. Launching the Research Dashboard
-
-Launch the Streamlit interactive trading laboratory:
+Run the local API (health/status only at this stage):
 
 ```powershell
-.\.venv\Scripts\streamlit.exe run src/trader/dashboard/app.py --server.port 8501 --server.address 127.0.0.1
+uvicorn trader.api.app:app --host 127.0.0.1 --port 8000
 ```
 
-Access the dashboard locally at `http://127.0.0.1:8501`.
+Health endpoint: `http://127.0.0.1:8000/api/v1/health`  
+API documentation: `http://127.0.0.1:8000/api/docs`
 
----
+## React frontend setup
 
-## 5. Architectural Modules
-
-- `src/trader/domain/`: Canonical Pydantic schemas (Candle, Quote, Order, Position, Ledger).
-- `src/trader/providers/`: Provider abstraction (`MarketDataProvider`, `CSVProvider`, `SyntheticProvider`, `TrueDataAdapter`).
-- `src/trader/data/`: Timestamp normalization (`Asia/Kolkata`), data validation, freshness monitoring.
-- `src/trader/universe/`: NSE symbol and instrument master management.
-- `src/trader/scanner/`: Top gainers/losers, relative volume (RVOL), momentum, volatility, and liquidity screeners.
-- `src/trader/features/`: Technical indicators (SMA, RSI, ATR, VWAP, Bollinger Bands, Volume).
-- `src/trader/strategies/`: Deterministic daily swing trading baseline engine.
-- `src/trader/risk/`: Position sizing, 0.5% risk rule, portfolio exposure caps, persistent kill switch.
-- `src/trader/backtest/`: Chronological event-driven simulation with granular Indian transaction costs.
-- `src/trader/ml/`: Purged walk-forward ML pipeline, scikit-learn models, leak-free feature pipelines.
-- `src/trader/paper/`: Virtual broker, order lifecycle, ledger accounting, portfolio valuation.
-- `src/trader/storage/`: SQLite database schemas, connection pooling, and repositories.
-- `src/trader/dashboard/`: 9-view Streamlit quantitative research suite.
-
----
-
-## 6. Running Automated Tests
-
-Run the full pytest suite with coverage:
+Requirements: Node.js >= 22.12.0 and npm.
 
 ```powershell
-.\.venv\Scripts\pytest.exe -v --cov=src/trader tests/
+cd frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
 ```
 
----
+Open `http://127.0.0.1:5173`. The Vite development server proxies `/api` to the local FastAPI server on port 8000.
 
-## 7. License & Compliance
+Production build and type-check:
 
-Strictly for academic, educational, and quantitative paper-trading research. No warranty of profitability is provided or implied. Consult registered financial advisors and regulatory documentation before executing real-money trades.
+```powershell
+npm run typecheck
+npm run build
+```
 
+## Data and model safety
+
+- Synthetic data is for software tests only; never treat it as real market evidence.
+- No provider credentials belong in source control or `VITE_*` frontend variables.
+- The dashboard must distinguish real-time, delayed, historical, cached and synthetic datasets.
+- A reachable API does not mean the market-data provider is connected.
+- Strategy metrics must come from an event-driven portfolio simulation after costs and realistic execution assumptions.
+- Model scores are research outputs, not certainty or guaranteed returns.
+
+## Frontend design and architecture
+
+React + TypeScript + Vite. The initial UI scaffold uses a light-first neutral palette with restrained emerald and muted red, minimal visual decoration and a responsive sidebar. Browser code must never be the authoritative calculator for P&L, order sizing or risk validation.
+
+See [React migration plan](docs/FRONTEND_REACT_MIGRATION_PLAN.md) for staged API and page integration.
