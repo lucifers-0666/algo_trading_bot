@@ -137,6 +137,16 @@ class VirtualPaperBroker:
         )
 
         # 3. Create Trade Record
+        # Pre-fill revalidation immediately before execution (fail closed)
+        if self.risk_manager.kill_switch.is_active():
+            reason = f"Pre-fill rejection: Emergency Kill Switch is ENGAGED: {self.risk_manager.kill_switch.get_reason()}"
+            assessment.approved = False
+            assessment.rejection_reasons.append(reason)
+            self.order_manager.update_status(order.order_id, OrderStatus.REJECTED, rejection_reason=reason)
+            order.status = OrderStatus.REJECTED
+            order.rejection_reason = reason
+            return order, None, assessment
+
         trade_id = f"trd_{uuid4().hex[:10]}"
         now_ist = datetime.now(IST)
 

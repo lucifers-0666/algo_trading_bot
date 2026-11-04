@@ -187,6 +187,8 @@ class PortfolioState(BaseModel):
     """Aggregated virtual account portfolio status."""
     starting_cash: float = 10000.0
     cash_balance: float = 10000.0
+    day_starting_equity: float = 10000.0
+    last_day_reset: str = Field(default_factory=lambda: datetime.now(IST).strftime("%Y-%m-%d"))
     reserved_margin: float = 0.0
     realized_pnl: float = 0.0
     unrealized_pnl: float = 0.0

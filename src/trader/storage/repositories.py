@@ -12,6 +12,7 @@ from trader.domain.models import (
     Instrument,
     Order,
     Trade,
+    Position,
     PortfolioState,
     AuditLog,
     DataSource,
@@ -299,16 +300,19 @@ class PortfolioRepository:
         try:
             query = """
             INSERT INTO portfolio_snapshots (
-                starting_cash, cash_balance, reserved_margin, realized_pnl,
+                starting_cash, cash_balance, day_starting_equity, last_day_reset,
+                reserved_margin, realized_pnl,
                 unrealized_pnl, total_equity, peak_equity, max_drawdown_pct,
                 open_positions_count, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             conn.execute(
                 query,
                 (
                     state.starting_cash,
                     state.cash_balance,
+                    state.day_starting_equity,
+                    state.last_day_reset,
                     state.reserved_margin,
                     state.realized_pnl,
                     state.unrealized_pnl,
@@ -331,9 +335,14 @@ class PortfolioRepository:
             r = cursor.fetchone()
             if not r:
                 return None
+            keys = r.keys()
+            day_starting = r["day_starting_equity"] if "day_starting_equity" in keys else r["starting_cash"]
+            last_reset = r["last_day_reset"] if "last_day_reset" in keys else ""
             return PortfolioState(
                 starting_cash=r["starting_cash"],
                 cash_balance=r["cash_balance"],
+                day_starting_equity=day_starting,
+                last_day_reset=last_reset,
                 reserved_margin=r["reserved_margin"],
                 realized_pnl=r["realized_pnl"],
                 unrealized_pnl=r["unrealized_pnl"],
@@ -343,6 +352,81 @@ class PortfolioRepository:
                 open_positions_count=r["open_positions_count"],
                 updated_at=r["updated_at"],
             )
+        finally:
+            conn.close()
+
+
+class PositionRepository:
+    """Manages persistent active equity holdings across application restarts."""
+
+    def __init__(self, db: DatabaseManager):
+        self.db = db
+
+    def save_position(self, pos: Position) -> None:
+        conn = self.db.get_connection()
+        try:
+            query = """
+            INSERT INTO positions (
+                symbol, quantity, average_entry_price, current_price,
+                unrealized_pnl, realized_pnl, open_timestamp, updated_timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(symbol) DO UPDATE SET
+                quantity = excluded.quantity,
+                average_entry_price = excluded.average_entry_price,
+                current_price = excluded.current_price,
+                unrealized_pnl = excluded.unrealized_pnl,
+                realized_pnl = excluded.realized_pnl,
+                updated_timestamp = excluded.updated_timestamp;
+            """
+            conn.execute(
+                query,
+                (
+                    pos.symbol.strip().upper(),
+                    pos.quantity,
+                    pos.average_entry_price,
+                    pos.current_price,
+                    pos.unrealized_pnl,
+                    pos.realized_pnl,
+                    pos.open_timestamp.isoformat(),
+                    pos.updated_timestamp.isoformat(),
+                ),
+            )
+        finally:
+            conn.close()
+
+    def delete_position(self, symbol: str) -> None:
+        conn = self.db.get_connection()
+        try:
+            conn.execute("DELETE FROM positions WHERE symbol = ?", (symbol.strip().upper(),))
+        finally:
+            conn.close()
+
+    def get_all_positions(self) -> List[Position]:
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.execute("SELECT * FROM positions WHERE quantity > 0")
+            positions = []
+            for r in cursor.fetchall():
+                positions.append(
+                    Position(
+                        symbol=r["symbol"],
+                        quantity=r["quantity"],
+                        average_entry_price=r["average_entry_price"],
+                        current_price=r["current_price"],
+                        unrealized_pnl=r["unrealized_pnl"],
+                        realized_pnl=r["realized_pnl"],
+                        open_timestamp=r["open_timestamp"],
+                        updated_timestamp=r["updated_timestamp"],
+                    )
+                )
+            return positions
+        finally:
+            conn.close()
+
+    def clear_all(self) -> None:
+        conn = self.db.get_connection()
+        try:
+            conn.execute("DELETE FROM positions")
         finally:
             conn.close()
 

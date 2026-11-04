@@ -82,10 +82,25 @@ CREATE TABLE IF NOT EXISTS trades (
 CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
 CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
 
+CREATE TABLE IF NOT EXISTS positions (
+    symbol TEXT PRIMARY KEY,
+    quantity INTEGER NOT NULL,
+    average_entry_price REAL NOT NULL,
+    current_price REAL NOT NULL,
+    unrealized_pnl REAL NOT NULL DEFAULT 0.0,
+    realized_pnl REAL NOT NULL DEFAULT 0.0,
+    open_timestamp TEXT NOT NULL,
+    updated_timestamp TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_positions_symbol ON positions(symbol);
+
 CREATE TABLE IF NOT EXISTS portfolio_snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     starting_cash REAL NOT NULL,
     cash_balance REAL NOT NULL,
+    day_starting_equity REAL NOT NULL DEFAULT 10000.0,
+    last_day_reset TEXT NOT NULL DEFAULT '',
     reserved_margin REAL NOT NULL DEFAULT 0.0,
     realized_pnl REAL NOT NULL DEFAULT 0.0,
     unrealized_pnl REAL NOT NULL DEFAULT 0.0,
@@ -145,6 +160,7 @@ class DatabaseManager:
             conn.execute("DROP TABLE IF EXISTS instruments;")
             conn.execute("DROP TABLE IF EXISTS orders;")
             conn.execute("DROP TABLE IF EXISTS trades;")
+            conn.execute("DROP TABLE IF EXISTS positions;")
             conn.execute("DROP TABLE IF EXISTS portfolio_snapshots;")
             conn.execute("DROP TABLE IF EXISTS audit_logs;")
             conn.executescript(SCHEMA_SQL)
