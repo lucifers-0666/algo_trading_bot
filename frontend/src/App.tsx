@@ -1,68 +1,204 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Activity, ArrowUpRight, Bell, BrainCircuit, CandlestickChart,
-  ChevronDown, CircleHelp, Database, FlaskConical, Gauge, LayoutDashboard,
-  ListFilter, Menu, Search, Settings2, ShieldCheck, SlidersHorizontal, Wallet,
-  WifiOff, X,
+  Activity,
+  BrainCircuit,
+  CandlestickChart,
+  ChevronDown,
+  CircleHelp,
+  Database,
+  FlaskConical,
+  LayoutDashboard,
+  Menu,
+  Search,
+  ShieldCheck,
+  Wallet,
+  X,
+  Layers,
+  Scale,
+  ShoppingCart,
+  History,
+  TrendingUp,
+  FileText,
+  Sliders,
+  HardDrive,
 } from "lucide-react";
-import { getApiHealth } from "./lib/api";
+import { getApiHealth, getMarketSession } from "./lib/api";
 
-type PageKey = "Overview" | "Market scanner" | "Research lab" | "Backtests" | "Paper portfolio" | "Risk & audit" | "Settings";
+// Import all 17 Views
+import { OverviewView } from "./views/OverviewView";
+import { MarketScannerView } from "./views/MarketScannerView";
+import { InstrumentMasterView } from "./views/InstrumentMasterView";
+import { StockResearchView } from "./views/StockResearchView";
+import { StrategyLabView } from "./views/StrategyLabView";
+import { MlResearchLabView } from "./views/MlResearchLabView";
+import { BacktestingLabView } from "./views/BacktestingLabView";
+import { StrategyComparisonView } from "./views/StrategyComparisonView";
+import { ModelRegistryView } from "./views/ModelRegistryView";
+import { TradingTerminalView } from "./views/TradingTerminalView";
+import { PortfolioView } from "./views/PortfolioView";
+import { OrderHistoryView } from "./views/OrderHistoryView";
+import { PerformanceAnalyticsView } from "./views/PerformanceAnalyticsView";
+import { RiskManagementView } from "./views/RiskManagementView";
+import { AuditLogsView } from "./views/AuditLogsView";
+import { MarketDataSettingsView } from "./views/MarketDataSettingsView";
+import { SystemSettingsView } from "./views/SystemSettingsView";
 
-const navigation: { group: string; items: { label: PageKey; icon: typeof LayoutDashboard }[] }[] = [
-  { group: "WORKSPACE", items: [
-    { label: "Overview", icon: LayoutDashboard },
-    { label: "Market scanner", icon: CandlestickChart },
-    { label: "Research lab", icon: BrainCircuit },
-    { label: "Backtests", icon: FlaskConical },
-  ]},
-  { group: "PAPER TRADING", items: [
-    { label: "Paper portfolio", icon: Wallet },
-    { label: "Risk & audit", icon: ShieldCheck },
-  ]},
-  { group: "PREFERENCES", items: [{ label: "Settings", icon: Settings2 }] },
+export type PageKey =
+  | "Overview"
+  | "Market scanner"
+  | "Instrument master"
+  | "Stock research"
+  | "Strategy lab"
+  | "ML research lab"
+  | "Backtests"
+  | "Strategy comparison"
+  | "Model registry"
+  | "Trading terminal"
+  | "Portfolio & holdings"
+  | "Order history"
+  | "Performance analytics"
+  | "Risk management"
+  | "Audit logs"
+  | "Market data & feeds"
+  | "System settings";
+
+interface NavGroup {
+  group: string;
+  items: { label: PageKey; icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }> }[];
+}
+
+const navigation: NavGroup[] = [
+  {
+    group: "WORKSPACE",
+    items: [
+      { label: "Overview", icon: LayoutDashboard },
+      { label: "Market scanner", icon: Search },
+      { label: "Instrument master", icon: Database },
+      { label: "Stock research", icon: CandlestickChart },
+    ],
+  },
+  {
+    group: "QUANT RESEARCH & ML",
+    items: [
+      { label: "Strategy lab", icon: Sliders },
+      { label: "ML research lab", icon: BrainCircuit },
+      { label: "Backtests", icon: FlaskConical },
+      { label: "Strategy comparison", icon: Scale },
+      { label: "Model registry", icon: Layers },
+    ],
+  },
+  {
+    group: "SIMULATED PAPER TRADING",
+    items: [
+      { label: "Trading terminal", icon: ShoppingCart },
+      { label: "Portfolio & holdings", icon: Wallet },
+      { label: "Order history", icon: History },
+      { label: "Performance analytics", icon: TrendingUp },
+    ],
+  },
+  {
+    group: "RISK & COMPLIANCE",
+    items: [
+      { label: "Risk management", icon: ShieldCheck },
+      { label: "Audit logs", icon: FileText },
+    ],
+  },
+  {
+    group: "SYSTEM & DATA",
+    items: [
+      { label: "Market data & feeds", icon: Database },
+      { label: "System settings", icon: HardDrive },
+    ],
+  },
 ];
 
-function App() {
+export default function App() {
   const [activePage, setActivePage] = useState<PageKey>("Overview");
+  const [activeSymbol, setActiveSymbol] = useState<string>("INFY");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const health = useQuery({
     queryKey: ["api-health"],
     queryFn: ({ signal }) => getApiHealth(signal),
     refetchInterval: 15_000,
   });
+
+  const session = useQuery({
+    queryKey: ["market-session-topbar"],
+    queryFn: ({ signal }) => getMarketSession(signal),
+    refetchInterval: 15_000,
+  });
+
   const apiOnline = health.isSuccess;
 
-  const subtitle = useMemo(() => ({
-    "Overview": "A clear view of your research and simulated portfolio.",
-    "Market scanner": "Discover eligible NSE candidates from verified market data.",
-    "Research lab": "Compare deterministic rules and machine-learning experiments.",
-    "Backtests": "Review event-driven simulations after costs and slippage.",
-    "Paper portfolio": "Track virtual cash, positions and simulated orders.",
-    "Risk & audit": "Review portfolio guardrails and every simulated decision.",
-    "Settings": "Configure local services and data-source connectivity.",
-  } satisfies Record<PageKey, string>)[activePage], [activePage]);
-
-  const choosePage = (page: PageKey) => {
-    setActivePage(page);
+  const handleNavigate = (page: string, symbol?: string) => {
+    setActivePage(page as PageKey);
+    if (symbol) {
+      setActiveSymbol(symbol);
+    }
     setSidebarOpen(false);
   };
 
+  const subtitle = useMemo(() => {
+    const titles: Record<PageKey, string> = {
+      "Overview": "A unified executive telemetry of your research and simulated portfolio.",
+      "Market scanner": "Discover eligible NSE swing candidates using multi-factor technical screening.",
+      "Instrument master": "Authoritative instrument master records, lot sizing, and tick specifications.",
+      "Stock research": "High-density technical analysis charts, indicators, and market regime classification.",
+      "Strategy lab": "Configure quantitative trading rules and review look-ahead bias prevention.",
+      "ML research lab": "Train chronological machine-learning models with purge gaps and zero label leakage.",
+      "Backtests": "Event-driven historical backtesting with realistic execution and statutory taxes.",
+      "Strategy comparison": "Evaluate multiple strategies side-by-side under identical market conditions.",
+      "Model registry": "Catalog of registered machine-learning models and out-of-sample metrics.",
+      "Trading terminal": "Simulated order proposal, pre-trade risk verification, and virtual execution.",
+      "Portfolio & holdings": "Active open equity holdings with mark-to-market valuation and P&L.",
+      "Order history": "Immutable audit trail of all simulated orders, fills, and rejections.",
+      "Performance analytics": "In-depth portfolio return metrics, equity curves, and fee attribution.",
+      "Risk management": "Emergency kill-switch controller and real-time portfolio guardrail gauges.",
+      "Audit logs": "Cryptographically sequenced event stream of system actions and risk verdicts.",
+      "Market data & feeds": "Data provenance tracking, latency monitoring, and provider configuration.",
+      "System settings": "Localhost binding verification, SQLite WAL database, and virtual account reset.",
+    };
+    return titles[activePage] ?? "Quantitative research and simulated trading workstation.";
+  }, [activePage]);
+
   return (
     <div className="app-shell">
-      {sidebarOpen && <button className="mobile-scrim" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && (
+        <button
+          className="mobile-scrim"
+          aria-label="Close navigation"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Navigation */}
       <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
         <div className="brand">
-          <div className="brand-mark"><CandlestickChart size={19} strokeWidth={2.1} /></div>
-          <div><div className="brand-name">northstar<span>.</span></div><div className="brand-caption">QUANT RESEARCH</div></div>
-          <button className="icon-button sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Close menu"><X size={18}/></button>
+          <div className="brand-mark">
+            <CandlestickChart size={19} strokeWidth={2.1} />
+          </div>
+          <div>
+            <div className="brand-name">northstar<span>.</span></div>
+            <div className="brand-caption">QUANT RESEARCH</div>
+          </div>
+          <button
+            className="icon-button sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         <div className="workspace-switcher">
-          <div className="workspace-avatar">AI</div>
-          <div className="workspace-copy"><strong>Personal workspace</strong><span>Local environment</span></div>
-          <ChevronDown size={15} className="muted-icon"/>
+          <div className="workspace-avatar">NSE</div>
+          <div className="workspace-copy">
+            <strong>Indian Equity Workspace</strong>
+            <span>Cash Equities · Paper Mode</span>
+          </div>
+          <ChevronDown size={14} className="muted-icon" />
         </div>
 
         <nav className="nav-groups" aria-label="Main navigation">
@@ -70,9 +206,13 @@ function App() {
             <div className="nav-group" key={group.group}>
               <div className="nav-label">{group.group}</div>
               {group.items.map(({ label, icon: Icon }) => (
-                <button key={label} className={`nav-item ${activePage === label ? "nav-item-active" : ""}`} onClick={() => choosePage(label)}>
-                  <Icon size={17} strokeWidth={1.8}/><span>{label}</span>
-                  {label === "Market scanner" && <span className="nav-count">0</span>}
+                <button
+                  key={label}
+                  className={`nav-item ${activePage === label ? "nav-item-active" : ""}`}
+                  onClick={() => handleNavigate(label)}
+                >
+                  <Icon size={16} strokeWidth={1.8} />
+                  <span>{label}</span>
                 </button>
               ))}
             </div>
@@ -80,104 +220,124 @@ function App() {
         </nav>
 
         <div className="sidebar-bottom">
-          <div className="sidebar-help"><CircleHelp size={17}/><span>Research guide</span><span className="help-shortcut">?</span></div>
+          <div className="sidebar-help">
+            <CircleHelp size={16} />
+            <span>Research Guide</span>
+            <span className="help-shortcut">?</span>
+          </div>
           <div className="profile-row">
             <div className="profile-avatar">L</div>
-            <div className="profile-copy"><strong>Local researcher</strong><span>Paper environment</span></div>
-            <span className="profile-dot"/>
+            <div className="profile-copy">
+              <strong>Local Quantitative Researcher</strong>
+              <span>Paper Sandbox · ₹10k Base</span>
+            </div>
+            <span className="profile-dot" />
           </div>
-          <div className="version-row"><span>INDIA · NSE CASH</span><span>v0.2.0</span></div>
+          <div className="version-row">
+            <span>INDIA · NSE CASH</span>
+            <span>v0.2.0</span>
+          </div>
         </div>
       </aside>
 
+      {/* Main Content Area */}
       <main className="main-area">
+        {/* Top Header Bar */}
         <header className="topbar">
-          <button className="icon-button mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Open navigation"><Menu size={19}/></button>
-          <div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><strong>{activePage}</strong></div>
+          <button
+            className="icon-button mobile-menu"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open navigation"
+          >
+            <Menu size={19} />
+          </button>
+
+          <div className="breadcrumbs">
+            <span>Workspace</span>
+            <span className="crumb-slash">/</span>
+            <strong>{activePage}</strong>
+          </div>
+
           <div className="topbar-actions">
             <div className={`connection-chip ${apiOnline ? "connection-ok" : "connection-off"}`}>
-              <span className="connection-dot"/>{apiOnline ? "Backend connected" : "Backend offline"}
+              <span className="connection-dot" />
+              {apiOnline ? "FastAPI Online (127.0.0.1)" : "Backend Offline"}
             </div>
-            <button className="icon-button" aria-label="Notifications"><Bell size={18}/><i className="notification-dot"/></button>
-            <div className="topbar-divider"/>
-            <div className="mode-pill"><span/>PAPER MODE</div>
+
+            <div className="topbar-divider" />
+
+            <div className="mode-pill">
+              <span /> STRICT PAPER TRADING
+            </div>
           </div>
         </header>
 
+        {/* Dynamic Page Container */}
         <div className="page-container">
           <section className="page-heading">
-            <div><div className="eyebrow">INDIAN EQUITY RESEARCH <span>·</span> NSE</div><h1>{activePage}</h1><p>{subtitle}</p></div>
-            <div className="heading-actions"><div className="market-state"><span className="state-dot"/><span>Market status unavailable</span></div><button className="button-secondary" onClick={() => void health.refetch()}><Activity size={15}/> Refresh status</button></div>
+            <div>
+              <div className="eyebrow">
+                INDIAN EQUITY QUANTITATIVE RESEARCH <span>·</span> NSE CASH
+              </div>
+              <h1>{activePage}</h1>
+              <p>{subtitle}</p>
+            </div>
+
+            <div className="heading-actions">
+              <div className="market-state">
+                <span className={`state-dot ${session.data?.is_open ? "state-dot-good" : ""}`} />
+                <span>
+                  NSE: {session.data?.is_open ? "OPEN (09:15-15:30 IST)" : "CLOSED"}
+                </span>
+              </div>
+              <button
+                className="button-secondary"
+                onClick={() => {
+                  void health.refetch();
+                  void session.refetch();
+                }}
+              >
+                <Activity size={14} /> Refresh Telemetry
+              </button>
+            </div>
           </section>
 
-          {activePage === "Overview" ? <Overview apiOnline={apiOnline} /> : <SectionPlaceholder page={activePage} apiOnline={apiOnline}/>}
-          <footer className="page-footer"><span>Northstar Research Platform</span><span>Virtual trading only · No broker order routing</span><span>Asia/Kolkata</span></footer>
+          {/* Render Active View from 17 Views */}
+          <div className="active-view-wrapper">
+            {activePage === "Overview" && <OverviewView onNavigate={handleNavigate} />}
+            {activePage === "Market scanner" && <MarketScannerView onNavigate={handleNavigate} />}
+            {activePage === "Instrument master" && <InstrumentMasterView onNavigate={handleNavigate} />}
+            {activePage === "Stock research" && (
+              <StockResearchView initialSymbol={activeSymbol} onNavigate={handleNavigate} />
+            )}
+            {activePage === "Strategy lab" && <StrategyLabView onNavigate={handleNavigate} />}
+            {activePage === "ML research lab" && <MlResearchLabView onNavigate={handleNavigate} />}
+            {activePage === "Backtests" && <BacktestingLabView onNavigate={handleNavigate} />}
+            {activePage === "Strategy comparison" && <StrategyComparisonView onNavigate={handleNavigate} />}
+            {activePage === "Model registry" && <ModelRegistryView onNavigate={handleNavigate} />}
+            {activePage === "Trading terminal" && (
+              <TradingTerminalView initialSymbol={activeSymbol} onNavigate={handleNavigate} />
+            )}
+            {activePage === "Portfolio & holdings" && <PortfolioView onNavigate={handleNavigate} />}
+            {activePage === "Order history" && <OrderHistoryView onNavigate={handleNavigate} />}
+            {activePage === "Performance analytics" && (
+              <PerformanceAnalyticsView onNavigate={handleNavigate} />
+            )}
+            {activePage === "Risk management" && <RiskManagementView onNavigate={handleNavigate} />}
+            {activePage === "Audit logs" && <AuditLogsView onNavigate={handleNavigate} />}
+            {activePage === "Market data & feeds" && (
+              <MarketDataSettingsView onNavigate={handleNavigate} />
+            )}
+            {activePage === "System settings" && <SystemSettingsView onNavigate={handleNavigate} />}
+          </div>
+
+          <footer className="page-footer">
+            <span>Northstar Quantitative Research Platform · NSE Cash Equities</span>
+            <span>Strictly Virtual Paper Trading · No Broker Demat Connection · Asia/Kolkata</span>
+            <span>Version 0.2.0</span>
+          </footer>
         </div>
       </main>
     </div>
   );
 }
-
-function Overview({ apiOnline }: { apiOnline: boolean }) {
-  return (
-    <>
-      <div className="notice-bar">
-        <div className="notice-icon"><ShieldCheck size={17}/></div>
-        <div><strong>Simulation environment</strong><span>All orders are virtual. No demat account or live order connection is enabled.</span></div>
-        <span className="notice-status">SAFE BY DEFAULT</span>
-      </div>
-
-      <section className="metric-grid" aria-label="Paper account overview">
-        <MetricCard label="VIRTUAL EQUITY" value="₹10,000.00" detail="Configured starting capital" icon={Wallet} />
-        <MetricCard label="AVAILABLE CASH" value="₹10,000.00" detail="No simulated positions yet" icon={Database} />
-        <MetricCard label="TODAY'S P&L" value="—" detail="Waiting for paper-trading data" icon={Activity} muted />
-        <MetricCard label="MAX DRAWDOWN" value="—" detail="Available after simulation runs" icon={Gauge} muted />
-      </section>
-
-      <div className="content-grid">
-        <section className="panel scanner-panel">
-          <div className="panel-header"><div><h2>Market opportunities</h2><p>Candidate discovery · NSE cash equities</p></div><button className="text-button" disabled>Open scanner <ArrowUpRight size={14}/></button></div>
-          <div className="empty-state">
-            <div className="empty-icon"><CandlestickChart size={23}/></div>
-            <strong>{apiOnline ? "Market data not connected" : "Waiting for local backend"}</strong>
-            <p>{apiOnline ? "The API is reachable, but no licensed market-data feed or validated scanner snapshot is available yet." : "Start the local API to connect the dashboard. Market prices will remain hidden until a verified provider or historical dataset is configured."}</p>
-            <div className="empty-meta"><span className="mini-dot"/>No stock prices are being simulated in this view</div>
-          </div>
-        </section>
-
-        <section className="panel feed-panel">
-          <div className="panel-header"><div><h2>System health</h2><p>Services and data freshness</p></div><span className={`status-label ${apiOnline ? "status-good" : "status-neutral"}`}>{apiOnline ? "API ONLINE" : "OFFLINE"}</span></div>
-          <HealthRow icon={Activity} label="Application API" value={apiOnline ? "Connected" : "Not connected"} good={apiOnline}/>
-          <HealthRow icon={Database} label="Market data feed" value="Not configured" />
-          <HealthRow icon={BrainCircuit} label="ML inference" value="Not active" />
-          <HealthRow icon={ShieldCheck} label="Paper risk controls" value="Awaiting backend" />
-          <div className="feed-footnote"><WifiOff size={14}/> Live data status is not inferred from API availability.</div>
-        </section>
-      </div>
-
-      <section className="panel portfolio-panel">
-        <div className="panel-header"><div><h2>Portfolio activity</h2><p>Recent virtual orders and simulated fills</p></div><button className="filter-button" disabled><ListFilter size={15}/> Filters</button></div>
-        <div className="table-wrap">
-          <table><thead><tr><th>INSTRUMENT</th><th>SIDE</th><th>QUANTITY</th><th>FILL PRICE</th><th>STATUS</th><th>TIME (IST)</th></tr></thead>
-          <tbody><tr><td colSpan={6}><div className="table-empty">No simulated orders have been recorded.</div></td></tr></tbody></table>
-        </div>
-      </section>
-    </>
-  );
-}
-
-function MetricCard({ label, value, detail, icon: Icon, muted = false }: { label: string; value: string; detail: string; icon: typeof Wallet; muted?: boolean }) {
-  return <article className="metric-card"><div className="metric-top"><span>{label}</span><div className="metric-icon"><Icon size={17}/></div></div><div className={`metric-value ${muted ? "metric-muted" : ""}`}>{value}</div><div className="metric-detail">{detail}</div></article>;
-}
-
-function HealthRow({ icon: Icon, label, value, good = false }: { icon: typeof Activity; label: string; value: string; good?: boolean }) {
-  return <div className="health-row"><div className="health-icon"><Icon size={15}/></div><span>{label}</span><strong className={good ? "text-good" : "text-neutral"}>{value}</strong></div>;
-}
-
-function SectionPlaceholder({ page, apiOnline }: { page: PageKey; apiOnline: boolean }) {
-  const icon = page === "Research lab" ? BrainCircuit : page === "Backtests" ? FlaskConical : page === "Paper portfolio" ? Wallet : page === "Risk & audit" ? ShieldCheck : page === "Settings" ? SlidersHorizontal : Search;
-  const Icon = icon;
-  return <section className="panel route-placeholder"><div className="placeholder-icon"><Icon size={25}/></div><h2>{page} is being connected</h2><p>This React route is scaffolded. Its data view will be enabled when the corresponding FastAPI contract and tested Python service are ready.</p><div className="placeholder-state"><span className={apiOnline ? "state-dot" : "state-dot state-dot-off"}/>{apiOnline ? "Backend reachable; feature endpoint not implemented." : "Backend is offline."}</div></section>;
-}
-
-export default App;

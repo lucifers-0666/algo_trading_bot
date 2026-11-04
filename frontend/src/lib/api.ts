@@ -1,34 +1,198 @@
-export type ApiHealth = {
-  status: "ok" | "degraded";
-  mode: "paper";
-  service: string;
-  timestamp: string;
-};
+import type {
+  ApiHealth,
+  ApiStatus,
+  MarketSession,
+  DataHealth,
+  ScanCandidate,
+  Instrument,
+  InstrumentDetailsResponse,
+  InstrumentCandlesResponse,
+  PortfolioState,
+  Position,
+  Order,
+  Trade,
+  OrderProposalRequest,
+  OrderProposalResponse,
+  OrderExecuteRequest,
+  OrderExecuteResponse,
+  StrategyDefinition,
+  BacktestResponse,
+  StrategyComparisonReport,
+  ModelMetadata,
+  AuditLog,
+} from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
-export async function getApiHealth(signal?: AbortSignal): Promise<ApiHealth> {
-  const response = await fetch(`${API_BASE}/v1/health`, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    signal,
+async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const url = `${API_BASE}${endpoint}`;
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(options?.headers ?? {}),
+    },
+    ...options,
   });
 
   if (!response.ok) {
-    throw new Error(`Backend returned HTTP ${response.status}`);
+    let errDetail = `HTTP ${response.status}`;
+    try {
+      const errJson = await response.json();
+      if (errJson && typeof errJson === "object" && "detail" in errJson) {
+        errDetail = String(errJson.detail);
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(errDetail);
   }
 
-  const payload: unknown = await response.json();
-  if (
-    typeof payload !== "object" ||
-    payload === null ||
-    !("mode" in payload) ||
-    payload.mode !== "paper" ||
-    !("timestamp" in payload) ||
-    typeof payload.timestamp !== "string"
-  ) {
-    throw new Error("Backend health response did not match the expected paper-only contract");
-  }
+  return response.json() as Promise<T>;
+}
 
-  return payload as ApiHealth;
+// 1. Health & Status
+export function getApiHealth(signal?: AbortSignal): Promise<ApiHealth> {
+  return fetchJson<ApiHealth>("/v1/health", { method: "GET", signal });
+}
+
+export function getApiStatus(signal?: AbortSignal): Promise<ApiStatus> {
+  return fetchJson<ApiStatus>("/v1/status", { method: "GET", signal });
+}
+
+export function getMarketSession(signal?: AbortSignal): Promise<MarketSession> {
+  return fetchJson<MarketSession>("/v1/market/session", { method: "GET", signal });
+}
+
+export function getDataHealth(signal?: AbortSignal): Promise<DataHealth> {
+  return fetchJson<DataHealth>("/v1/data/health", { method: "GET", signal });
+}
+
+// 2. Market Scanner
+export function getScannerCandidates(category = "all", signal?: AbortSignal): Promise<ScanCandidate[]> {
+  const query = encodeURIComponent(category);
+  return fetchJson<ScanCandidate[]>(`/v1/scanner/candidates?category=${query}`, { method: "GET", signal });
+}
+
+// 3. Instruments & Quotes
+export function getInstruments(signal?: AbortSignal): Promise<Instrument[]> {
+  return fetchJson<Instrument[]>("/v1/instruments", { method: "GET", signal });
+}
+
+export function getInstrumentDetails(symbol: string, signal?: AbortSignal): Promise<InstrumentDetailsResponse> {
+  return fetchJson<InstrumentDetailsResponse>(`/v1/instruments/${encodeURIComponent(symbol)}`, { method: "GET", signal });
+}
+
+export function getInstrumentCandles(
+  symbol: string,
+  limit = 100,
+  timeframe = "1d",
+  signal?: AbortSignal
+): Promise<InstrumentCandlesResponse> {
+  return fetchJson<InstrumentCandlesResponse>(
+    `/v1/instruments/${encodeURIComponent(symbol)}/candles?limit=${limit}&timeframe=${timeframe}`,
+    { method: "GET", signal }
+  );
+}
+
+// 4. Portfolio & Holdings
+export function getPortfolio(signal?: AbortSignal): Promise<PortfolioState> {
+  return fetchJson<PortfolioState>("/v1/portfolio", { method: "GET", signal });
+}
+
+export function getPositions(signal?: AbortSignal): Promise<Position[]> {
+  return fetchJson<Position[]>("/v1/portfolio/positions", { method: "GET", signal });
+}
+
+// 5. Paper Trading Terminal & Orders
+export function getOrders(limit = 50, signal?: AbortSignal): Promise<Order[]> {
+  return fetchJson<Order[]>(`/v1/paper/orders?limit=${limit}`, { method: "GET", signal });
+}
+
+export function proposeOrder(req: OrderProposalRequest, signal?: AbortSignal): Promise<OrderProposalResponse> {
+  return fetchJson<OrderProposalResponse>("/v1/paper/orders", {
+    method: "POST",
+    body: JSON.stringify(req),
+    signal,
+  });
+}
+
+export function executeOrder(req: OrderExecuteRequest, signal?: AbortSignal): Promise<OrderExecuteResponse> {
+  return fetchJson<OrderExecuteResponse>("/v1/paper/execute", {
+    method: "POST",
+    body: JSON.stringify(req),
+    signal,
+  });
+}
+
+export function resetPaperAccount(confirmation = true, signal?: AbortSignal): Promise<{ success: boolean; message: string; portfolio: PortfolioState }> {
+  return fetchJson<{ success: boolean; message: string; portfolio: PortfolioState }>("/v1/paper/reset", {
+    method: "POST",
+    body: JSON.stringify({ confirmation }),
+    signal,
+  });
+}
+
+export function getTrades(limit = 50, signal?: AbortSignal): Promise<Trade[]> {
+  return fetchJson<Trade[]>(`/v1/paper/trades?limit=${limit}`, { method: "GET", signal });
+}
+
+// 6. Strategies & Backtests
+export function getStrategies(signal?: AbortSignal): Promise<StrategyDefinition[]> {
+  return fetchJson<StrategyDefinition[]>("/v1/strategies", { method: "GET", signal });
+}
+
+export function runBacktest(
+  params: {
+    strategy_name: string;
+    symbols: string[];
+    initial_capital?: number;
+    brokerage_flat?: number;
+    slippage_bps?: number;
+  },
+  signal?: AbortSignal
+): Promise<BacktestResponse> {
+  return fetchJson<BacktestResponse>("/v1/backtests/run", {
+    method: "POST",
+    body: JSON.stringify(params),
+    signal,
+  });
+}
+
+export function getStrategyComparison(symbols?: string, signal?: AbortSignal): Promise<StrategyComparisonReport> {
+  const query = symbols ? `?symbols=${encodeURIComponent(symbols)}` : "";
+  return fetchJson<StrategyComparisonReport>(`/v1/backtests/comparison${query}`, { method: "GET", signal });
+}
+
+// 7. Machine Learning
+export function getModels(signal?: AbortSignal): Promise<ModelMetadata[]> {
+  return fetchJson<ModelMetadata[]>("/v1/models", { method: "GET", signal });
+}
+
+export function trainModel(
+  params: { symbol: string; model_type: string; horizon_bars: number },
+  signal?: AbortSignal
+): Promise<{ success: boolean; metadata: ModelMetadata }> {
+  return fetchJson<{ success: boolean; metadata: ModelMetadata }>("/v1/models/train", {
+    method: "POST",
+    body: JSON.stringify(params),
+    signal,
+  });
+}
+
+// 8. Audit & Risk Kill-Switch
+export function getAuditLogs(limit = 50, signal?: AbortSignal): Promise<AuditLog[]> {
+  return fetchJson<AuditLog[]>(`/v1/audit?limit=${limit}`, { method: "GET", signal });
+}
+
+export function setKillSwitch(
+  action: "engage" | "disengage",
+  reason: string,
+  signal?: AbortSignal
+): Promise<{ active: boolean; reason: string }> {
+  return fetchJson<{ active: boolean; reason: string }>("/v1/risk/kill-switch", {
+    method: "POST",
+    body: JSON.stringify({ action, reason }),
+    signal,
+  });
 }
