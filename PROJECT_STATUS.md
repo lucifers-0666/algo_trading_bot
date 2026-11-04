@@ -1,8 +1,8 @@
 # Project Status: Indian Equity AI Paper Trading Platform
 
 **Last Updated:** 2026-11-04  
-**Current Phase:** All Phases (Phase 1 through Phase 11) Fully Implemented & Tested  
-**System State:** **OPERATIONAL & PRODUCTION-READY (RESEARCH & PAPER TRADING)**
+**Current Phase:** Python prototype implemented; independent audit and React migration scaffold on review branch  
+**System State:** **DEVELOPMENT PROTOTYPE — NOT PRODUCTION-READY; live data and React feature integration remain incomplete**
 
 ---
 
@@ -18,7 +18,7 @@
 | **Virtual Starting Capital** | ₹10,000 INR |
 | **Database** | SQLite 3 (`data/storage/paper_trader.db`) with WAL Mode |
 | **Dashboard** | Streamlit 1.66.1 across 14 dedicated research views |
-| **Automated Test Suite** | **55 passed / 0 failed in 5.85s (81% code coverage)** |
+| **Automated Test Suite** | Previous project-reported result: 55 passed / 0 failed / 81% coverage (not independently re-run during remote audit) |
 
 ---
 
@@ -79,3 +79,19 @@
   - Rich CLI tool (`cli.py`) supporting `validate-data`, `scan`, `backtest`, `train`, `status`, and `kill-switch`.
   - Complete integration and negative isolation test suite (`tests/integration/`).
   - Total 55 automated tests passing with 81% code coverage.
+
+
+## 3. Independent review update — 2026-11-04
+
+The repository was reviewed from GitHub source and documentation. This is not a local execution report; tests and frontend builds were not run as part of the remote source review.
+
+- Audit: `docs/REPOSITORY_AUDIT_2026-11-04.md`
+- React migration plan: `docs/FRONTEND_REACT_MIGRATION_PLAN.md`
+- Quant reliability roadmap: `docs/QUANT_RELIABILITY_ROADMAP.md`
+- Review branch: `review/react-frontend-quant-reliability`
+- React + TypeScript + Vite: responsive UI scaffold added; feature pages still require API contracts and integration.
+- FastAPI: local health/status endpoints only; they do not connect to a real market feed.
+- TrueData: existing adapter is not verified as operational and must remain disabled until protocol, auth, subscription and license are checked.
+- Safety fixes on the review branch: missing kill-switch state now initializes active; a caller-supplied paper-order quantity cannot exceed risk-approved quantity. Regression tests were added but not run in this remote review.
+- Remaining high-priority work: correct backtest exit timing/gap fills, ML portfolio evaluation, position persistence/reconciliation, true start-of-day loss calculation, exchange calendar support and provider adapter verification.
+- Do not use the phrase “production-ready” or infer profitability from the current test status/backtest claims.
