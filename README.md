@@ -20,11 +20,12 @@ An auditable, reproducible, production-grade Python quantitative research and pa
 
 ## 2. Fast Setup (PowerShell on Windows)
 
-Open PowerShell in the project root (`d:\Algo trading`):
+Open PowerShell in the project root:
 
 ```powershell
 # 1. Create Python 3.12 Virtual Environment
-& "C:\Users\zaid amreliya\AppData\Local\Programs\Python\Python312\python.exe" -m venv .venv
+py -3.12 -m venv .venv
+# (or: python -m venv .venv)
 
 # 2. Activate Virtual Environment
 .\.venv\Scripts\Activate.ps1

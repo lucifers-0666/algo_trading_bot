@@ -9,6 +9,12 @@ env/
 *.env
 !.env.example
 
+# Python build, distribution & egg metadata
+build/
+dist/
+*.egg-info/
+*.egg
+
 # Bytecode and caches
 __pycache__/
 *.py[cod]
@@ -23,22 +29,36 @@ htmlcov/
 *.sqlite
 *.sqlite3
 *.db
-data/cache/
-data/live/
-data/storage/
+data/cache/*
+!data/cache/.gitkeep
+data/live/*
+!data/live/.gitkeep
+data/storage/*
+!data/storage/.gitkeep
 
 # Model files & weights
-models/saved/
+models/saved/*
+!models/saved/.gitkeep
+models/registry.json
 *.joblib
 *.pkl
 
+# Runtime states and locks
+config/*.state
+config/kill_switch.state
+*.pid
+*.lock
+
 # Logs and runtime artifacts
-logs/
+logs/*
+!logs/.gitkeep
 *.log
 
 # Reports and temporary outputs
-reports/runs/
-reports/exports/
+reports/runs/*
+!reports/runs/.gitkeep
+reports/exports/*
+!reports/exports/.gitkeep
 
 # IDE & OS files
 .vscode/
@@ -46,4 +66,3 @@ reports/exports/
 .DS_Store
 Thumbs.db
 desktop.ini
-

@@ -13,7 +13,7 @@
 | **Operating System** | Windows 11 Home (64-bit), Build 10.0.26300 |
 | **CPU / Hardware** | AMD Ryzen 9 8940HX (16 Cores, 32 Threads), 24GB RAM |
 | **GPU / Acceleration** | NVIDIA GeForce RTX 5060 Laptop GPU (8GB VRAM, CUDA 13.1) |
-| **Python Runtime** | Python 3.12.10 in dedicated `.venv` (`d:\Algo trading\.venv`) |
+| **Python Runtime** | Python 3.12+ in dedicated virtual environment (`.venv`) |
 | **Execution Mode** | **STRICTLY PAPER TRADING** (Real demat order routing excluded) |
 | **Virtual Starting Capital** | ₹10,000 INR |
 | **Database** | SQLite 3 (`data/storage/paper_trader.db`) with WAL Mode |
