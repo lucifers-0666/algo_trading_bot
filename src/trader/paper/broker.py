@@ -91,7 +91,16 @@ class VirtualPaperBroker:
             feed_freshness=feed_freshness,
         )
 
-        final_qty = quantity or assessment.approved_quantity
+        final_qty = assessment.approved_quantity if quantity is None else quantity
+
+        # A caller-supplied quantity may reduce an approved size, but must never
+        # enlarge it or exceed the position available for a SELL.
+        if assessment.approved and (final_qty <= 0 or final_qty > assessment.approved_quantity):
+            assessment.approved = False
+            assessment.rejection_reasons.append(
+                f"Requested quantity {final_qty} exceeds the risk-approved quantity "
+                f"{assessment.approved_quantity}."
+            )
 
         # Create Order in PENDING status
         order = self.order_manager.create_order(
