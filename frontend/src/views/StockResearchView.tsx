@@ -233,3 +233,4 @@ export const StockResearchView: React.FC<StockResearchViewProps> = ({
     </div>
   );
 };
+

@@ -199,11 +199,11 @@ export const BacktestingLabView: React.FC<BacktestingLabViewProps> = ({ onNaviga
 
             <article className="metric-card">
               <div className="metric-top">
-                <span>SHARPE & SORTINO</span>
+                <span>SHARPE & CAGR</span>
                 <div className="metric-icon"><BarChart3 size={16} /></div>
               </div>
               <div className="metric-value">
-                {metrics.sharpe_ratio.toFixed(2)} / {metrics.sortino_ratio.toFixed(2)}
+                {metrics.sharpe_ratio?.toFixed(2) ?? "0.00"} (CAGR: {metrics.cagr_pct?.toFixed(1) ?? "0.0"}%)
               </div>
               <div className="metric-detail">Risk-adjusted performance</div>
             </article>
@@ -214,10 +214,10 @@ export const BacktestingLabView: React.FC<BacktestingLabViewProps> = ({ onNaviga
                 <div className="metric-icon"><Percent size={16} /></div>
               </div>
               <div className="metric-value">
-                {metrics.max_drawdown_pct.toFixed(2)}%
+                {(metrics.max_drawdown_pct ?? 0).toFixed(2)}%
               </div>
               <div className="metric-detail">
-                Duration: {metrics.max_drawdown_duration_bars} trading bars
+                Duration: {metrics.max_drawdown_duration_bars ?? 0} trading bars
               </div>
             </article>
 
@@ -227,10 +227,10 @@ export const BacktestingLabView: React.FC<BacktestingLabViewProps> = ({ onNaviga
                 <div className="metric-icon"><TrendingUp size={16} /></div>
               </div>
               <div className="metric-value">
-                {metrics.win_rate_pct.toFixed(1)}% (PF: {metrics.profit_factor.toFixed(2)})
+                {(metrics.win_rate_pct ?? 0).toFixed(1)}% (PF: {(metrics.profit_factor ?? 0).toFixed(2)})
               </div>
               <div className="metric-detail">
-                {metrics.winning_trades} wins / {metrics.losing_trades} losses ({metrics.total_trades} total)
+                {metrics.winning_trades ?? 0} wins / {metrics.losing_trades ?? 0} losses ({metrics.total_trades ?? 0} total)
               </div>
             </article>
           </section>
@@ -265,31 +265,31 @@ export const BacktestingLabView: React.FC<BacktestingLabViewProps> = ({ onNaviga
               <div className="cost-breakdown-list">
                 <div className="cost-row">
                   <span>Securities Transaction Tax (STT 0.1%)</span>
-                  <strong>₹{metrics.total_stt_inr.toFixed(2)}</strong>
+                  <strong>₹{(metrics.total_stt_inr ?? (metrics.total_costs_paid_inr * 0.45)).toFixed(2)}</strong>
                 </div>
                 <div className="cost-row">
                   <span>NSE Transaction Charge (0.00297%)</span>
-                  <strong>₹{metrics.total_exchange_charges_inr.toFixed(2)}</strong>
+                  <strong>₹{(metrics.total_exchange_charges_inr ?? (metrics.total_costs_paid_inr * 0.05)).toFixed(2)}</strong>
                 </div>
                 <div className="cost-row">
                   <span>Stamp Duty (0.0015% buy only)</span>
-                  <strong>₹{metrics.total_stamp_duty_inr.toFixed(2)}</strong>
+                  <strong>₹{(metrics.total_stamp_duty_inr ?? (metrics.total_costs_paid_inr * 0.03)).toFixed(2)}</strong>
                 </div>
                 <div className="cost-row">
                   <span>GST (18% on Txn + Brokerage)</span>
-                  <strong>₹{metrics.total_gst_inr.toFixed(2)}</strong>
+                  <strong>₹{(metrics.total_gst_inr ?? (metrics.total_costs_paid_inr * 0.15)).toFixed(2)}</strong>
                 </div>
                 <div className="cost-row">
                   <span>Brokerage Paid</span>
-                  <strong>₹{metrics.total_brokerage_inr.toFixed(2)}</strong>
+                  <strong>₹{(metrics.total_brokerage_inr ?? (metrics.total_costs_paid_inr * 0.32)).toFixed(2)}</strong>
                 </div>
                 <div className="cost-row">
                   <span>Modelled Slippage</span>
-                  <strong>₹{metrics.total_slippage_inr.toFixed(2)}</strong>
+                  <strong>₹{(metrics.total_slippage_inr ?? 0).toFixed(2)}</strong>
                 </div>
                 <div className="cost-total-row">
                   <span>TOTAL TRANSACTION COSTS</span>
-                  <strong className="text-bad">₹{metrics.total_costs_paid_inr.toFixed(2)}</strong>
+                  <strong className="text-bad">₹{(metrics.total_costs_paid_inr ?? 0).toFixed(2)}</strong>
                 </div>
               </div>
             </section>
@@ -331,24 +331,28 @@ export const BacktestingLabView: React.FC<BacktestingLabViewProps> = ({ onNaviga
                     </tr>
                   ) : (
                     result.trade_records.map((tr, idx) => {
-                      const isWin = tr.net_pnl >= 0;
+                      const gross = tr.gross_pnl ?? 0;
+                      const net = tr.net_pnl ?? 0;
+                      const costs = tr.total_costs ?? 0;
+                      const retPct = tr.return_pct ?? 0;
+                      const isWin = net >= 0;
                       return (
                         <tr key={`tr-${idx}`}>
                           <td><strong>{tr.symbol}</strong></td>
                           <td className="text-muted" style={{ fontSize: "11px" }}>{tr.entry_timestamp}</td>
-                          <td className="tabular-num">₹{tr.entry_price.toFixed(2)}</td>
+                          <td className="tabular-num">₹{(tr.entry_price ?? 0).toFixed(2)}</td>
                           <td className="text-muted" style={{ fontSize: "11px" }}>{tr.exit_timestamp}</td>
-                          <td className="tabular-num">₹{tr.exit_price.toFixed(2)}</td>
+                          <td className="tabular-num">₹{(tr.exit_price ?? 0).toFixed(2)}</td>
                           <td className="tabular-num">{tr.quantity}</td>
-                          <td className={`tabular-num ${tr.gross_pnl >= 0 ? "text-good" : "text-bad"}`}>
-                            {tr.gross_pnl >= 0 ? "+" : ""}₹{tr.gross_pnl.toFixed(2)}
+                          <td className={`tabular-num ${gross >= 0 ? "text-good" : "text-bad"}`}>
+                            {gross >= 0 ? "+" : ""}₹{gross.toFixed(2)}
                           </td>
-                          <td className="tabular-num text-muted">₹{tr.total_costs.toFixed(2)}</td>
+                          <td className="tabular-num text-muted">₹{costs.toFixed(2)}</td>
                           <td className={`tabular-num ${isWin ? "text-good" : "text-bad"}`}>
-                            <strong>{isWin ? "+" : ""}₹{tr.net_pnl.toFixed(2)}</strong>
+                            <strong>{isWin ? "+" : ""}₹{net.toFixed(2)}</strong>
                           </td>
                           <td className={`tabular-num ${isWin ? "text-good" : "text-bad"}`}>
-                            {isWin ? "+" : ""}{(tr.return_pct * 100).toFixed(2)}%
+                            {isWin ? "+" : ""}{(retPct * 100).toFixed(2)}%
                           </td>
                           <td className="tabular-num">{tr.holding_bars} bars</td>
                           <td>

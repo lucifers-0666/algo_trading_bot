@@ -179,13 +179,13 @@ export interface OrderProposalResponse {
   approved_quantity: number;
   rejection_reasons: string[];
   sizing?: {
-    shares: number;
-    capital_allocation: number;
-    risk_amount_inr: number;
-    risk_pct_portfolio: number;
-    position_pct_portfolio: number;
-    stop_distance_inr: number;
-    is_valid: boolean;
+    approved: boolean;
+    quantity: number;
+    entry_price: number;
+    stop_loss: number;
+    risk_budget_inr: number;
+    calculated_risk_inr: number;
+    allocated_capital_inr: number;
     reason: string;
   } | null;
 }
@@ -323,3 +323,4 @@ export interface AuditLog {
   details: Record<string, any>;
   timestamp: string;
 }
+

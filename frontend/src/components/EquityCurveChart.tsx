@@ -133,3 +133,4 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
     </div>
   );
 };
+

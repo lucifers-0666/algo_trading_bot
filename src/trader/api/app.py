@@ -214,7 +214,7 @@ def scanner_candidates(category: str = Query("all", description="Scanner categor
     elif cat == "rvol":
         candidates = scanner_engine.scan_relative_volume()
     else:  # all / combined
-        all_res = scanner_engine.scan_all()
+        all_res = scanner_engine.run_full_scan()
         combined = []
         for c_list in all_res.values():
             combined.extend(c_list)
@@ -339,7 +339,7 @@ def get_positions() -> List[Dict[str, Any]]:
 @app.get("/api/v1/paper/orders", tags=["paper_trading"])
 def list_orders(limit: int = Query(50, ge=1, le=200)) -> List[Dict[str, Any]]:
     """Returns simulated paper order audit ledger."""
-    orders = order_mgr.get_recent_orders(limit=limit)
+    orders = order_repo.get_all_orders(limit=limit)
     return [o.model_dump() for o in orders]
 
 
@@ -407,7 +407,7 @@ def reset_virtual_account(req: ResetAccountRequest) -> Dict[str, Any]:
 @app.get("/api/v1/paper/trades", tags=["paper_trading"])
 def list_trades(limit: int = Query(50, ge=1, le=200)) -> List[Dict[str, Any]]:
     """Returns filled simulated trade ledger."""
-    trades = trade_repo.get_recent_trades(limit=limit)
+    trades = trade_repo.get_trades(limit=limit)
     return [t.model_dump() for t in trades]
 
 

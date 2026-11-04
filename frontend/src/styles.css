@@ -1494,9 +1494,17 @@ tr:hover td {
 
 .execution-feedback-card {
   padding: 12px 14px;
+  border-radius: 6px;
+}
+
+.feedback-card-pass {
   border: 1px solid #c9e4d4;
   background: #f1f8f3;
-  border-radius: 6px;
+}
+
+.feedback-card-fail {
+  border: 1px solid #f6cfcf;
+  background: #fdf5f5;
 }
 
 .feedback-header {

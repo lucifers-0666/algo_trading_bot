@@ -60,3 +60,7 @@ config/kill_switch.state
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Testing & Playwright artifacts
+.playwright-mcp/
+reports/*.png

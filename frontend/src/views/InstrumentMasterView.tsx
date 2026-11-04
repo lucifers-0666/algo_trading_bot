@@ -195,3 +195,4 @@ export const InstrumentMasterView: React.FC<InstrumentMasterViewProps> = ({ onNa
     </div>
   );
 };
+

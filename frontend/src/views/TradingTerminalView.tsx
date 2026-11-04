@@ -273,19 +273,19 @@ export const TradingTerminalView: React.FC<TradingTerminalViewProps> = ({
                   <div className="sizing-specs-grid">
                     <div className="sizing-spec-item">
                       <span>Max Capital Allocation</span>
-                      <strong>₹{proposal.sizing.capital_allocation.toFixed(2)}</strong>
+                      <strong>₹{(proposal.sizing.allocated_capital_inr ?? 0).toFixed(2)}</strong>
                     </div>
                     <div className="sizing-spec-item">
-                      <span>Portfolio Weight</span>
-                      <strong>{proposal.sizing.position_pct_portfolio.toFixed(1)}%</strong>
+                      <span>Approved Quantity</span>
+                      <strong>{proposal.sizing.quantity ?? proposal.approved_quantity} shares</strong>
                     </div>
                     <div className="sizing-spec-item">
-                      <span>Stop Distance</span>
-                      <strong>₹{proposal.sizing.stop_distance_inr.toFixed(2)} / share</strong>
+                      <span>Risk Budget</span>
+                      <strong>₹{(proposal.sizing.risk_budget_inr ?? 0).toFixed(2)}</strong>
                     </div>
                     <div className="sizing-spec-item">
-                      <span>Max Risk At Stop</span>
-                      <strong>₹{proposal.sizing.risk_amount_inr.toFixed(2)} ({proposal.sizing.risk_pct_portfolio.toFixed(1)}%)</strong>
+                      <span>Max Calculated Risk</span>
+                      <strong>₹{(proposal.sizing.calculated_risk_inr ?? 0).toFixed(2)}</strong>
                     </div>
                   </div>
                 )}
@@ -333,24 +333,47 @@ export const TradingTerminalView: React.FC<TradingTerminalViewProps> = ({
 
             {/* Execution Result Feedback */}
             {lastExecution && (
-              <div className="execution-feedback-card" style={{ marginTop: 16 }}>
+              <div
+                className={`execution-feedback-card ${lastExecution.success ? "feedback-card-pass" : "feedback-card-fail"}`}
+                style={{ marginTop: 16 }}
+              >
                 <div className="feedback-header">
-                  <CheckCircle2 size={16} className="text-good" />
-                  <strong>Simulated Order Filled Successfully!</strong>
+                  {lastExecution.success ? (
+                    <>
+                      <CheckCircle2 size={16} className="text-good" />
+                      <strong>Simulated Order Filled Successfully!</strong>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle size={16} className="text-bad" />
+                      <strong className="text-bad">Simulated Order Rejected by Risk Engine</strong>
+                    </>
+                  )}
                 </div>
                 <div className="feedback-details">
                   <div>Order ID: <code>{lastExecution.order.order_id}</code></div>
-                  <div>Filled Qty: <strong>{lastExecution.order.quantity} shares</strong></div>
-                  <div>Fill Price: <strong>₹{lastExecution.trade?.price.toFixed(2)}</strong></div>
-                  <div>Total Statutory Fees: <strong>₹{lastExecution.trade?.total_costs_inr.toFixed(2)}</strong></div>
+                  <div>Status: <strong>{lastExecution.order.status}</strong></div>
+                  {lastExecution.success ? (
+                    <>
+                      <div>Filled Qty: <strong>{lastExecution.order.quantity} shares</strong></div>
+                      <div>Fill Price: <strong>₹{lastExecution.trade?.price.toFixed(2)}</strong></div>
+                      <div>Total Statutory Fees: <strong>₹{lastExecution.trade?.total_costs_inr.toFixed(2)}</strong></div>
+                    </>
+                  ) : (
+                    <div style={{ gridColumn: "1 / -1", color: "#b95d5d", marginTop: 4 }}>
+                      Reason: <strong>{lastExecution.order.rejection_reason}</strong>
+                    </div>
+                  )}
                 </div>
-                <button
-                  className="button-secondary"
-                  onClick={() => onNavigate("Portfolio & holdings")}
-                  style={{ marginTop: 10 }}
-                >
-                  View Open Position in Portfolio
-                </button>
+                {lastExecution.success && (
+                  <button
+                    className="button-secondary"
+                    onClick={() => onNavigate("Portfolio & holdings")}
+                    style={{ marginTop: 10 }}
+                  >
+                    View Open Position in Portfolio
+                  </button>
+                )}
               </div>
             )}
           </div>
