@@ -1,0 +1,26 @@
+app:
+  name: "Indian Equity AI Paper Trading Platform"
+  version: "0.1.0"
+  env: "development"
+  mode: "paper" # STRICTLY "paper" - live execution is permanently blocked
+  timezone: "Asia/Kolkata"
+  log_level: "INFO"
+  log_format: "json" # json or text
+  data_dir: "data"
+  reports_dir: "reports"
+  models_dir: "models"
+
+storage:
+  database_url: "sqlite:///data/storage/paper_trader.db"
+  echo_sql: false
+
+provider:
+  default: "synthetic" # options: "synthetic", "csv", "truedata"
+  feed_freshness_threshold_seconds: 300 # 5 minutes cutoff for stale data
+  reconnect_attempts: 5
+  reconnect_delay_seconds: 5
+
+dashboard:
+  host: "127.0.0.1"
+  port: 8501
+  theme: "dark"

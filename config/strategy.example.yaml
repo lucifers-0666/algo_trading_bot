@@ -1,0 +1,28 @@
+strategy:
+  name: "NSE_Daily_Swing_Baseline"
+  description: "Explainable daily swing-trading baseline using trend confirmation and pullback entries"
+  timeframe: "1d"
+  execution_on: "next_open" # Signals generated on candle close, executed on next eligible open
+
+indicators:
+  sma_fast_period: 20
+  sma_slow_period: 50
+  rsi_period: 14
+  rsi_entry_min: 45.0
+  rsi_entry_max: 65.0
+  atr_period: 14
+  volume_avg_period: 20
+  min_volume_threshold: 50000
+  min_daily_turnover_inr: 5000000 # 50 Lakhs INR minimum traded value
+
+entry_rules:
+  trend_filter: "close > sma_fast and sma_fast > sma_slow"
+  momentum_filter: "rsi >= rsi_entry_min and rsi <= rsi_entry_max"
+  pullback_condition: "low <= sma_fast * 1.01 and close > sma_fast"
+  volume_filter: "volume >= volume_avg"
+
+exit_rules:
+  stop_loss_atr_multiple: 2.0 # Initial stop set at Entry - (2.0 * ATR14)
+  take_profit_atr_multiple: 4.0 # Optional target (2:1 reward:risk)
+  trend_break_exit: "close < sma_slow" # Exit immediately if closing below 50 SMA
+  max_holding_period_candles: 15 # Time-based exit if trade neither hits stop nor target

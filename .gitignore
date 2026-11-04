@@ -1,0 +1,48 @@
+# Python virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables & secrets
+.env
+*.env
+!.env.example
+
+# Bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Databases and local storage
+*.sqlite
+*.sqlite3
+*.db
+data/cache/
+data/live/
+data/storage/
+
+# Model files & weights
+models/saved/
+*.joblib
+*.pkl
+
+# Logs and runtime artifacts
+logs/
+*.log
+
+# Reports and temporary outputs
+reports/runs/
+reports/exports/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

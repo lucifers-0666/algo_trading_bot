@@ -1,0 +1,27 @@
+risk:
+  initial_capital_inr: 10000.0 # Virtual starting cash in INR
+  max_risk_per_trade_pct: 0.005 # 0.5% risk per trade (e.g. ₹50 on ₹10,000 equity)
+  max_open_positions: 2 # Strictly no more than 2 simultaneous positions
+  max_portfolio_exposure_pct: 0.50 # Maximum 50% capital allocated across all positions
+  max_position_size_pct: 0.25 # Maximum 25% capital allocated to any single trade
+  daily_loss_limit_pct: 0.01 # 1.0% daily equity loss limit pause
+  max_drawdown_pause_pct: 0.05 # 5.0% maximum portfolio drawdown halts new orders
+  allow_shorting: false # Long-only NSE cash equity
+  allow_leverage: false # No leverage or margin
+  allow_pyramiding: false # No adding to existing open positions
+
+transaction_costs:
+  brokerage_per_order_inr: 20.0 # Discount broker flat fee (e.g. Zerodha/Groww)
+  stt_delivery_pct: 0.001 # 0.1% Securities Transaction Tax on delivery buy & sell
+  exchange_txn_charge_pct: 0.0000325 # NSE transaction charge 0.00325%
+  sebi_turnover_charge_pct: 0.000001 # SEBI turnover charge ₹10 per crore
+  stamp_duty_buy_pct: 0.00015 # 0.0015% stamp duty on buy orders only
+  gst_pct: 0.18 # 18% GST on (Brokerage + Exchange Txn + SEBI)
+  default_slippage_bps: 10.0 # 10 basis points (0.10%) conservative slippage model
+
+guards:
+  stale_data_timeout_seconds: 300 # Stale feed threshold
+  min_stock_price_inr: 20.0 # Penny stock filter
+  max_stock_price_inr: 50000.0
+  duplicate_order_window_seconds: 60 # Reject repeated orders within 60s
+  kill_switch_file: "config/kill_switch.state" # Persistent disk state
