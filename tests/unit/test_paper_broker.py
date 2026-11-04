@@ -88,6 +88,23 @@ def test_paper_broker_rejects_unauthorized_risk_trade(broker):
     assert state.open_positions_count == 0
 
 
+
+def test_paper_broker_rejects_user_quantity_above_risk_approved_size(broker):
+    # Risk sizing approves 2 shares (₹50 planned risk), so a caller must not
+    # override the quantity to 20 shares and bypass the risk manager.
+    order, trade, assessment = broker.submit_simulated_order(
+        symbol="SBIN",
+        side=OrderSide.BUY,
+        price=500.0,
+        stop_loss=475.0,
+        quantity=20,
+    )
+    assert assessment.approved is False
+    assert order.status == OrderStatus.REJECTED
+    assert trade is None
+    assert broker.accountant.cash_balance == 10000.0
+    assert broker.accountant.positions == {}
+
 def test_portfolio_account_reset():
     accountant = PortfolioAccountant(starting_cash=10000.0)
     accountant.cash_balance = 7500.0
