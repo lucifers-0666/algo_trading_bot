@@ -1,10 +1,10 @@
 """Virtual Portfolio Accounting and Ledger Engine.
-Maintains exact virtual cash balances, holdings, realized/unrealized P&L,
-and drawdown telemetry for the simulated ₹10,000 paper trading account.
+Maintains virtual cash balances, holdings, realized/unrealized P&L,
+and drawdown telemetry for the simulated paper-trading account.
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 import logging
 
 from trader.domain.models import (
@@ -38,7 +38,9 @@ class PortfolioAccountant:
         self.positions: Dict[str, Position] = {}
         self._last_snapshot_time = datetime.now(IST)
 
-        # Restore from database if snapshot exists
+        # Restore account-level state from the latest persisted snapshot.
+        # Open-position restoration is a separate known limitation documented
+        # in KNOWN_LIMITATIONS.md and must be completed before restart-safe use.
         if self.portfolio_repo:
             latest = self.portfolio_repo.get_latest_snapshot()
             if latest:
@@ -84,14 +86,30 @@ class PortfolioAccountant:
         return state
 
     def apply_fill(self, trade: Trade) -> None:
-        """Updates virtual cash and positions following trade execution."""
-        sym = trade.symbol
+        """Apply a simulated fill atomically with respect to in-memory ledger checks.
+
+        Validate the complete fill before changing cash or positions. In particular,
+        an oversell must never credit proceeds to the virtual account.
+        """
+        if trade.quantity <= 0:
+            raise ValueError("Fill quantity must be a positive integer.")
+        if trade.price <= 0:
+            raise ValueError("Fill price must be positive.")
+
+        sym = trade.symbol.strip().upper()
         pos = self.positions.get(sym)
 
         if trade.side == OrderSide.BUY:
-            # Outflow: Net trade amount (Trade value + Brokerage + Taxes)
-            self.cash_balance -= trade.net_value_inr
+            if trade.net_value_inr < 0:
+                raise ValueError("BUY fill net value cannot be negative.")
+            if trade.net_value_inr > self.cash_balance + 1e-9:
+                raise ValueError(
+                    f"Insufficient virtual cash: BUY requires ₹{trade.net_value_inr:.2f}, "
+                    f"available ₹{self.cash_balance:.2f}."
+                )
 
+            # All checks passed; apply the cash debit and position update.
+            self.cash_balance = round(self.cash_balance - trade.net_value_inr, 2)
             if pos is None or pos.quantity == 0:
                 self.positions[sym] = Position(
                     symbol=sym,
@@ -107,22 +125,26 @@ class PortfolioAccountant:
                 pos.quantity = total_qty
                 pos.average_entry_price = round(avg_price, 2)
                 pos.current_price = trade.price
-        else: # SELL
-            # Inflow: Net trade amount (Trade value - Brokerage - Taxes)
-            self.cash_balance += trade.net_value_inr
+        elif trade.side == OrderSide.SELL:
+            # Validate inventory before crediting any sale proceeds.
+            if pos is None or pos.quantity < trade.quantity:
+                held = pos.quantity if pos else 0
+                raise ValueError(
+                    f"Cannot SELL {trade.quantity} of {sym}; only holding {held}. "
+                    "Short selling is disabled in paper mode."
+                )
 
-            if pos and pos.quantity >= trade.quantity:
-                gross_gain = (trade.price - pos.average_entry_price) * trade.quantity
-                # Realized net P&L incorporates total costs
-                realized = round(gross_gain - trade.total_costs_inr, 2)
-                self.realized_pnl += realized
-                pos.realized_pnl += realized
-
-                pos.quantity -= trade.quantity
-                if pos.quantity == 0:
-                    del self.positions[sym]
-            else:
-                logger.error(f"Cannot sell {trade.quantity} of {sym}; only holding {pos.quantity if pos else 0}")
+            # All checks passed; now update proceeds and realized P&L.
+            self.cash_balance = round(self.cash_balance + trade.net_value_inr, 2)
+            gross_gain = (trade.price - pos.average_entry_price) * trade.quantity
+            realized = round(gross_gain - trade.total_costs_inr, 2)
+            self.realized_pnl = round(self.realized_pnl + realized, 2)
+            pos.realized_pnl = round(pos.realized_pnl + realized, 2)
+            pos.quantity -= trade.quantity
+            if pos.quantity == 0:
+                del self.positions[sym]
+        else:
+            raise ValueError(f"Unsupported trade side: {trade.side!r}")
 
         self.get_portfolio_state()
 
@@ -137,7 +159,7 @@ class PortfolioAccountant:
         self.get_portfolio_state()
 
     def reset_account(self, confirmation: bool = False) -> bool:
-        """Resets virtual paper account to ₹10,000 upon explicit confirmation."""
+        """Resets virtual paper account to its configured starting cash."""
         if not confirmation:
             logger.warning("Account reset rejected: Explicit confirmation flag not provided.")
             return False
@@ -151,4 +173,3 @@ class PortfolioAccountant:
         self.get_portfolio_state()
         logger.info(f"Virtual paper account successfully reset to ₹{self.starting_cash:,.2f}")
         return True
-
