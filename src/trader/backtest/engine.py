@@ -108,6 +108,15 @@ class BacktestEngine:
                     continue
 
                 open_price = float(bar_row.iloc[0]["open"])
+                high_price = float(bar_row.iloc[0]["high"])
+                low_price = float(bar_row.iloc[0]["low"])
+                close_price = float(bar_row.iloc[0]["close"])
+                bar_vol = float(bar_row.iloc[0].get("volume", 1.0))
+
+                # Circuit limit check on entry: cannot enter if circuit-locked or zero volume
+                if (high_price == low_price and open_price == close_price) or bar_vol <= 0:
+                    continue
+
                 stop_loss = ord_req["stop_loss"]
 
                 # Recompute sizing at actual execution open price
@@ -160,23 +169,63 @@ class BacktestEngine:
                     continue
 
                 bar = bar_row.iloc[0]
-                close_p = float(bar["close"])
-                t_data["current_price"] = close_p
+                bar_open = float(bar["open"])
+                bar_high = float(bar["high"])
+                bar_low = float(bar["low"])
+                bar_close = float(bar["close"])
+                bar_vol = float(bar.get("volume", 1.0))
+
+                t_data["current_price"] = bar_close
                 t_data["holding_bars"] += 1
 
-                # Slice historical slice up to current bar to prevent lookahead
-                slice_df = df_sym[df_sym["timestamp"] <= current_date]
-                exit_sig = self.strategy.evaluate_exit(
-                    df_ind=slice_df,
-                    entry_price=t_data["entry_price"],
-                    stop_loss=t_data["stop_loss"],
-                    target=t_data.get("target"),
-                    holding_candles=t_data["holding_bars"],
-                )
+                # Circuit limit check: if stock is locked or no volume, cannot execute exit today
+                if (bar_high == bar_low and bar_open == bar_close) or bar_vol <= 0:
+                    continue
 
-                if exit_sig is not None and exit_sig.signal_type == SignalType.SELL:
-                    # Determine execution exit price
-                    nominal_exit = exit_sig.metrics.get("exit_price", close_p)
+                stop_loss = t_data.get("stop_loss")
+                target = t_data.get("target")
+
+                exit_triggered = False
+                nominal_exit = bar_close
+                exit_reason = ""
+
+                # 1. Intrabar Stop-Loss & Target Check
+                stop_hit = stop_loss is not None and bar_low <= stop_loss
+                target_hit = target is not None and bar_high >= target
+
+                if stop_hit and target_hit:
+                    # Collision: both boundaries touched in same candle
+                    # Conservative assumption: assume stop-loss was triggered first
+                    exit_triggered = True
+                    exit_reason = "Stop-loss hit (Intrabar collision, conservative assumption)"
+                    # Gap-through-stop check
+                    nominal_exit = bar_open if bar_open <= stop_loss else stop_loss
+                elif stop_hit:
+                    exit_triggered = True
+                    exit_reason = "Stop-loss triggered"
+                    # Gap-through-stop: if open opened below stop, execute at open
+                    nominal_exit = bar_open if bar_open <= stop_loss else stop_loss
+                elif target_hit:
+                    exit_triggered = True
+                    exit_reason = "Target reached"
+                    # Gap-up through target
+                    nominal_exit = bar_open if bar_open >= target else target
+                else:
+                    # 2. Slice historical slice up to current bar to evaluate strategy technical exit on close
+                    slice_df = df_sym[df_sym["timestamp"] <= current_date]
+                    exit_sig = self.strategy.evaluate_exit(
+                        df_ind=slice_df,
+                        entry_price=t_data["entry_price"],
+                        stop_loss=t_data["stop_loss"],
+                        target=t_data.get("target"),
+                        holding_candles=t_data["holding_bars"],
+                    )
+                    if exit_sig is not None and exit_sig.signal_type == SignalType.SELL:
+                        exit_triggered = True
+                        nominal_exit = exit_sig.metrics.get("exit_price", bar_close)
+                        exit_reason = exit_sig.reason
+
+                if exit_triggered:
                     cost_breakdown = calculate_trade_costs(
                         side=OrderSide.SELL,
                         price=nominal_exit,
@@ -204,7 +253,7 @@ class BacktestEngine:
                         net_pnl=net_pnl,
                         return_pct=ret_pct,
                         holding_bars=t_data["holding_bars"],
-                        exit_reason=exit_sig.reason,
+                        exit_reason=exit_reason,
                         is_closed=True,
                     )
                     closed_trades.append(closed_rec)
@@ -245,6 +294,40 @@ class BacktestEngine:
                 "equity": total_equity,
                 "open_positions": len(open_trades),
             })
+
+        # Explicit end-of-test mark-to-market valuation for remaining open positions
+        if sorted_dates:
+            last_dt = sorted_dates[-1]
+            for sym, t_data in open_trades.items():
+                cost_breakdown = calculate_trade_costs(
+                    side=OrderSide.SELL,
+                    price=t_data["current_price"],
+                    quantity=t_data["quantity"],
+                    brokerage_flat=self.brokerage_flat,
+                    slippage_bps=self.slippage_bps,
+                )
+                gross_pnl = round((cost_breakdown.effective_price - t_data["entry_price"]) * t_data["quantity"], 2)
+                total_trade_costs = round(t_data["entry_costs"] + cost_breakdown.total_costs_inr, 2)
+                net_pnl = round(gross_pnl - total_trade_costs, 2)
+                ret_pct = round((net_pnl / (t_data["entry_price"] * t_data["quantity"])) * 100.0, 2)
+
+                open_rec = BacktestTradeRecord(
+                    symbol=sym,
+                    entry_date=t_data["entry_date"],
+                    exit_date=last_dt,
+                    entry_price=t_data["entry_price"],
+                    exit_price=cost_breakdown.effective_price,
+                    quantity=t_data["quantity"],
+                    entry_costs=t_data["entry_costs"],
+                    exit_costs=cost_breakdown.total_costs_inr,
+                    gross_pnl=gross_pnl,
+                    net_pnl=net_pnl,
+                    return_pct=ret_pct,
+                    holding_bars=t_data["holding_bars"],
+                    exit_reason="END_OF_TEST_OPEN_MTM",
+                    is_closed=False,
+                )
+                closed_trades.append(open_rec)
 
         # Calculate institutional metrics
         trade_logs_for_metrics = [
