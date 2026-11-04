@@ -45,3 +45,4 @@ def test_evaluate_feed_freshness_during_market_hours():
     rep_disc = evaluate_feed_freshness(None, freshness_threshold_seconds=300, current_time=now_market)
     assert rep_disc.status == FeedStatus.DISCONNECTED
     assert rep_disc.is_actionable is False
+

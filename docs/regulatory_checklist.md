@@ -37,3 +37,4 @@ Should a user ever decide to transition from paper trading to live trading in a 
 5. [ ] Pass mandatory exchange algo conformance testing in the broker's sandbox environment.
 6. [ ] Implement two-factor authentication (TOTP) and session token expiration handling according to exchange mandates.
 7. [ ] Implement emergency manual square-off controls accessible at all times during trading hours.
+

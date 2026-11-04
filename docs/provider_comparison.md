@@ -66,3 +66,4 @@ In accordance with Section 2 of `final_indian_ai_paper_trading_build_spec.md`:
    - User must review subscription tiers at `truedata.in`.
    - Select required symbol concurrency (e.g. Top 100 liquid stocks vs Broad universe).
    - Provide credentials via `.env` (`TRUEDATA_USERNAME`, `TRUEDATA_PASSWORD`).
+

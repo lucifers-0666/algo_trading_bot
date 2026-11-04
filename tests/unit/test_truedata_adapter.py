@@ -35,3 +35,4 @@ def test_truedata_adapter_parse_websocket_message():
     assert quote.ltp == 2855.20
     assert quote.bid == 2855.00
     assert quote.source == DataSource.TRUEDATA
+

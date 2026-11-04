@@ -26,3 +26,4 @@ exit_rules:
   take_profit_atr_multiple: 4.0 # Optional target (2:1 reward:risk)
   trend_break_exit: "close < sma_slow" # Exit immediately if closing below 50 SMA
   max_holding_period_candles: 15 # Time-based exit if trade neither hits stop nor target
+

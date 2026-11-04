@@ -31,3 +31,4 @@ def test_generate_universe_dataset():
     assert set(dataset.keys()) == set(symbols)
     for sym, candles in dataset.items():
         assert len(candles) == 20
+

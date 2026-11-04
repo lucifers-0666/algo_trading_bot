@@ -78,3 +78,4 @@ class SyntheticDataProvider(MarketDataProvider):
             "last_update": self._last_update.isoformat(),
             "active_symbols": list(self._cache.keys()),
         }
+

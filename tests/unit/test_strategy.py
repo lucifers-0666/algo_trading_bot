@@ -74,3 +74,4 @@ def test_baseline_strategy_exits():
     sig_time = strategy.evaluate_exit(df, entry_price=2000.0, stop_loss=1900.0, target=2200.0, holding_candles=10)
     assert sig_time is not None
     assert "Max holding period" in sig_time.reason
+

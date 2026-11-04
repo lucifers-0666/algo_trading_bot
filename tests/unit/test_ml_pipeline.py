@@ -79,3 +79,4 @@ def test_train_and_evaluate_model():
         assert len(rankings) == 1
         assert rankings[0]["symbol"] == "INFY"
         assert 0.0 <= rankings[0]["ml_probability"] <= 1.0
+

@@ -93,3 +93,4 @@ Independent rule-based screeners:
 - Tracks cash, reserved margin, realized P&L, unrealized mark-to-market P&L.
 - Implements idempotent order lifecycle: `PENDING` $\to$ `FILLED` / `REJECTED` / `CANCELLED`.
 - Full audit log of all balance changes.
+

@@ -37,3 +37,4 @@ def test_scanner_transparent_reasons():
     cand = rvol_candidates[0]
     # Check that reasons are transparent and not empty
     assert len(cand.inclusion_reasons) > 0 or len(cand.exclusion_reasons) > 0
+

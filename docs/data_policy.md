@@ -31,3 +31,4 @@ National Stock Exchange of India (NSE) maintains strict regulations governing ma
    - Real-time and paper execution pipelines must continuously verify feed latency.
    - If market updates exceed `feed_freshness_threshold_seconds` (default: 300 seconds during active market hours), the data state transitions to `STALE`.
    - In `STALE` status, generation of new paper orders is immediately blocked.
+

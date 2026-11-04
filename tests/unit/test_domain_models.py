@@ -113,3 +113,4 @@ def test_position_unrealized_pnl_update():
     pos.update_market_price(790.0)
     assert pos.current_price == 790.0
     assert pos.unrealized_pnl == -100.0
+

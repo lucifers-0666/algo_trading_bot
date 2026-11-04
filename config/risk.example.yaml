@@ -25,3 +25,4 @@ guards:
   max_stock_price_inr: 50000.0
   duplicate_order_window_seconds: 60 # Reject repeated orders within 60s
   kill_switch_file: "config/kill_switch.state" # Persistent disk state
+

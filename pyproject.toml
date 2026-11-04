@@ -46,3 +46,4 @@ addopts = "-v --strict-markers"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+

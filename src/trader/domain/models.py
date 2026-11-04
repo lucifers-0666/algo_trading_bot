@@ -204,3 +204,4 @@ class AuditLog(BaseModel):
     symbol: Optional[str] = None
     details: Dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(IST))
+

@@ -154,3 +154,4 @@ class TrueDataAdapter(MarketDataProvider):
             "subscribed_symbols": self._subscribed_symbols,
             "last_update": self._last_update.isoformat() if self._last_update else None,
         }
+

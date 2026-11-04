@@ -19,3 +19,4 @@
 ## 3. Regulatory & Execution Boundaries
 - **Strictly Paper Trading:** The platform does NOT connect to real demat accounts or real broker order routing APIs. All order fills, slippage, and portfolio ledger updates are purely simulated.
 - **Execution Assumption:** Signals are evaluated on completed daily candles. Fills are simulated at the next session open or eligible bar price. Fills are not guaranteed in low-liquidity stocks or stocks locked in upper/lower circuits.
+

@@ -110,3 +110,4 @@ def test_risk_manager_blocks_when_feed_stale(temp_kill_switch):
     )
     assert assessment.approved is False
     assert any("freshness guard breach" in err for err in assessment.rejection_reasons)
+

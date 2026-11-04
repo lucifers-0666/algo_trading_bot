@@ -125,3 +125,4 @@ def validate_candle_sequence(
         accepted_count=len(valid_candles),
     )
     return valid_candles, result
+

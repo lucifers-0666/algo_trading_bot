@@ -264,3 +264,4 @@ class BacktestEngine:
             equity_curve=equity_curve,
             trade_records=closed_trades,
         )
+

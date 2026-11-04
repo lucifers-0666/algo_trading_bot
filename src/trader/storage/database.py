@@ -150,3 +150,4 @@ class DatabaseManager:
             conn.executescript(SCHEMA_SQL)
         finally:
             conn.close()
+

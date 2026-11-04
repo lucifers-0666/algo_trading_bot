@@ -19,3 +19,4 @@ def test_universe_manager_curated_stocks():
     it_stocks = um.get_symbols_by_industry("IT")
     assert "TCS" in it_stocks
     assert "INFY" in it_stocks
+

@@ -54,3 +54,4 @@ def test_validate_candle_sequence_duplicates_and_order():
     assert res.is_valid is False
     assert any("Duplicate timestamp" in err for err in res.errors)
     assert any("Out-of-order timestamp" in err for err in res.errors)
+

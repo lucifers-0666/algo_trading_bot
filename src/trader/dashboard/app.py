@@ -631,3 +631,4 @@ elif page == "14. Data Provider Settings":
             "TrueData is running in safe OFFLINE mode. To enable licensed TrueData feeds, "
             "set `TRUEDATA_USERNAME` and `TRUEDATA_PASSWORD` in your local `.env` file."
         )
+

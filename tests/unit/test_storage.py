@@ -128,3 +128,4 @@ def test_portfolio_and_audit_repository(temp_db):
     assert len(logs) == 1
     assert logs[0].event_type == "RISK_LIMIT_CHECK"
     assert logs[0].details["qty"] == 5
+

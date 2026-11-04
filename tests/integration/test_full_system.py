@@ -102,3 +102,4 @@ def test_full_pipeline_end_to_end():
         logs = audit_repo.get_recent_logs(limit=10)
         assert len(logs) >= 1
         assert logs[0].symbol == "RELIANCE"
+

@@ -58,3 +58,4 @@ def test_normalize_row_to_candle_yahoo():
     assert candle.symbol == "INFY"
     assert candle.open == 1500.0
     assert candle.volume == 500000.0
+

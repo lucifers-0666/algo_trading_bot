@@ -115,3 +115,4 @@ Run the full pytest suite with coverage:
 ## 7. License & Compliance
 
 Strictly for academic, educational, and quantitative paper-trading research. No warranty of profitability is provided or implied. Consult registered financial advisors and regulatory documentation before executing real-money trades.
+

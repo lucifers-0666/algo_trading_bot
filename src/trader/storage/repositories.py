@@ -404,3 +404,4 @@ class AuditRepository:
             return logs
         finally:
             conn.close()
+

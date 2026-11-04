@@ -56,3 +56,4 @@ def test_compute_all_indicators_on_synthetic():
     # Verify no lookahead in sma_20: first 19 rows must be NaN
     assert df_ind["sma_20"].iloc[:19].isna().all()
     assert not pd.isna(df_ind["sma_20"].iloc[19])
+

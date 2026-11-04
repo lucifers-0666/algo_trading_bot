@@ -304,3 +304,4 @@ class MarketScannerEngine:
             "volatility": self.scan_volatility(),
             "unusual_movement": self.scan_unusual_movement(),
         }
+

@@ -94,3 +94,4 @@ def calculate_trade_costs(
         total_costs_inr=total_costs,
         net_trade_amount=net_amount,
     )
+

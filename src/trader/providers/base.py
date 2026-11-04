@@ -46,3 +46,4 @@ class MarketDataProvider(ABC):
     def unsubscribe_live(self, symbols: List[str]) -> None:
         """Unsubscribes from streaming feeds."""
         pass
+

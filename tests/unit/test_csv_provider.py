@@ -25,3 +25,4 @@ def test_csv_provider_get_historical_and_quote():
     assert quote.symbol == "RELIANCE"
     assert quote.ltp == candles[-1].close
     assert quote.bid < quote.ask
+

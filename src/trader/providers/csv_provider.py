@@ -121,3 +121,4 @@ class CSVDataProvider(MarketDataProvider):
             "loaded_symbols": list(self._cache.keys()),
             "last_update": self._last_update.isoformat(),
         }
+

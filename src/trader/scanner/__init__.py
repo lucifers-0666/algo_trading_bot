@@ -7,3 +7,4 @@ __all__ = [
     "scan_symbol_metrics",
     "MarketScannerEngine",
 ]
+

@@ -105,3 +105,4 @@ def calculate_position_size(
             f"Risk: ₹{calculated_risk:.2f} <= Budget ₹{risk_budget:.2f})"
         ),
     )
+

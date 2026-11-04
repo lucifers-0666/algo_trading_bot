@@ -157,3 +157,4 @@ def compute_performance_metrics(
         sharpe_ratio=sharpe,
         cagr_pct=cagr,
     )
+
