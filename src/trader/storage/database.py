@@ -145,10 +145,17 @@ class DatabaseManager:
         return conn
 
     def initialize_schema(self) -> None:
-        """Executes table and index DDL."""
+        """Executes table and index DDL with column migrations for existing databases."""
         conn = self.get_connection()
         try:
             conn.executescript(SCHEMA_SQL)
+            # Automatic schema migration for existing databases
+            cursor = conn.execute("PRAGMA table_info(portfolio_snapshots);")
+            cols = [r["name"] for r in cursor.fetchall()]
+            if cols and "day_starting_equity" not in cols:
+                conn.execute("ALTER TABLE portfolio_snapshots ADD COLUMN day_starting_equity REAL NOT NULL DEFAULT 10000.0;")
+            if cols and "last_day_reset" not in cols:
+                conn.execute("ALTER TABLE portfolio_snapshots ADD COLUMN last_day_reset TEXT NOT NULL DEFAULT '';")
         finally:
             conn.close()
 
