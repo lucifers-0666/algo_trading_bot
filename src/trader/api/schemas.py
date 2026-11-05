@@ -45,3 +45,31 @@ class ModelTrainRequest(BaseModel):
     model_type: str = "random_forest"
     horizon_bars: int = 5
 
+
+class LookaheadAuditRequest(BaseModel):
+    symbol: str = "INFY"
+    strategy_name: str = "baseline_swing"
+
+
+class HyperoptRequest(BaseModel):
+    symbols: List[str] = Field(default_factory=lambda: ["INFY", "TCS"])
+    param_grid: Optional[Dict[str, List[Any]]] = None
+    max_trials: int = 10
+
+
+class AnnouncementCreateRequest(BaseModel):
+    symbol: str
+    headline: str
+    source: str = "NSE_CORP"
+    summary: Optional[str] = None
+    url: Optional[str] = None
+
+
+class DecisionEvaluateRequest(BaseModel):
+    symbol: str
+    price: float = Field(..., gt=0.0)
+    stop_loss: float = Field(..., gt=0.0)
+    target: Optional[float] = None
+    strategy_name: Optional[str] = "baseline_swing"
+
+
