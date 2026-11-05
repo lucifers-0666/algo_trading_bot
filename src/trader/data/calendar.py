@@ -4,13 +4,22 @@ weekends, statutory holidays, and special trading sessions (e.g. Muhurat trading
 """
 
 from datetime import datetime, date, time, timedelta
-from typing import List, Set, Optional, Tuple
+from typing import List, Set, Optional, Tuple, Dict
+from pathlib import Path
+import json
 import pytz
 
 from trader.domain.models import IST
 
 NSE_MARKET_OPEN = time(9, 15)
 NSE_MARKET_CLOSE = time(15, 30)
+
+# Muhurat Trading Sessions (Diwali evening special 1-hour sessions)
+NSE_MUHURAT_SESSIONS: Dict[date, Tuple[time, time]] = {
+    date(2024, 11, 1): (time(18, 15), time(19, 15)),
+    date(2025, 10, 21): (time(18, 15), time(19, 15)),
+    date(2026, 11, 9): (time(18, 15), time(19, 15)),
+}
 
 # Official NSE Standard Equity Holidays (Declared circular dates for 2024-2026)
 NSE_STANDARD_HOLIDAYS: Set[date] = {
@@ -60,8 +69,13 @@ NSE_STANDARD_HOLIDAYS: Set[date] = {
 class NSETradingCalendar:
     """Institutional calendar for NSE Cash Equities."""
 
-    def __init__(self, holidays: Optional[Set[date]] = None):
-        self.holidays = holidays or NSE_STANDARD_HOLIDAYS
+    def __init__(
+        self,
+        holidays: Optional[Set[date]] = None,
+        muhurat_sessions: Optional[Dict[date, Tuple[time, time]]] = None,
+    ):
+        self.holidays = set(holidays if holidays is not None else NSE_STANDARD_HOLIDAYS)
+        self.muhurat_sessions = muhurat_sessions or NSE_MUHURAT_SESSIONS
 
     def is_trading_day(self, check_date: date | datetime) -> bool:
         """Returns True if the date is a regular business day and not a statutory holiday."""
@@ -77,8 +91,17 @@ class NSETradingCalendar:
 
         return True
 
+    def is_muhurat_session(self, dt: datetime) -> bool:
+        """Returns True if timestamp falls inside an official Muhurat trading window."""
+        dt_ist = dt.astimezone(IST) if dt.tzinfo else IST.localize(dt)
+        session = self.muhurat_sessions.get(dt_ist.date())
+        if not session:
+            return False
+        start_time, end_time = session
+        return start_time <= dt_ist.time() <= end_time
+
     def is_market_open(self, dt: Optional[datetime] = None) -> bool:
-        """Returns True if the given timestamp is within 09:15-15:30 IST on a valid trading day."""
+        """Returns True if given timestamp is within 09:15-15:30 IST on a valid trading day, or in a Muhurat session."""
         if dt is None:
             now_dt = datetime.now(IST)
         elif dt.tzinfo is None:
@@ -86,11 +109,41 @@ class NSETradingCalendar:
         else:
             now_dt = dt.astimezone(IST)
 
+        # Check special Muhurat trading window first
+        if self.is_muhurat_session(now_dt):
+            return True
+
         if not self.is_trading_day(now_dt.date()):
             return False
 
         curr_time = now_dt.time()
         return NSE_MARKET_OPEN <= curr_time <= NSE_MARKET_CLOSE
+
+    def add_holiday(self, holiday_date: date) -> None:
+        """Dynamically adds an exchange holiday date."""
+        self.holidays.add(holiday_date)
+
+    def remove_holiday(self, holiday_date: date) -> None:
+        """Dynamically removes an exchange holiday date."""
+        self.holidays.discard(holiday_date)
+
+    def load_holidays_from_file(self, file_path: str | Path) -> int:
+        """Dynamically loads declared NSE holiday dates from a JSON file."""
+        p = Path(file_path)
+        if not p.exists():
+            return 0
+        added = 0
+        if p.suffix.lower() == ".json":
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for item in data.get("holidays", []):
+                    try:
+                        d = date.fromisoformat(item if isinstance(item, str) else item.get("date"))
+                        self.add_holiday(d)
+                        added += 1
+                    except Exception:
+                        pass
+        return added
 
     def get_trading_days(self, start_date: date, end_date: date) -> List[date]:
         """Returns ordered list of trading days between start_date and end_date inclusive."""
