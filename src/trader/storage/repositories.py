@@ -15,6 +15,8 @@ from trader.domain.models import (
     Position,
     PortfolioState,
     AuditLog,
+    FinancialEvent,
+    EventImpact,
     DataSource,
     Timeframe,
     OrderSide,
@@ -488,4 +490,130 @@ class AuditRepository:
             return logs
         finally:
             conn.close()
+
+
+class FinancialEventRepository:
+    """Persistence repository for structured financial news and geopolitical events."""
+
+    def __init__(self, db: DatabaseManager):
+        self.db = db
+
+    def save_event(self, event: FinancialEvent) -> None:
+        conn = self.db.get_connection()
+        try:
+            query = """
+            INSERT INTO financial_events (
+                event_id, source, category, headline, summary, symbols,
+                sentiment_score, impact_level, url, published_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id) DO UPDATE SET
+                headline = excluded.headline,
+                summary = excluded.summary,
+                symbols = excluded.symbols,
+                sentiment_score = excluded.sentiment_score,
+                impact_level = excluded.impact_level;
+            """
+            conn.execute(
+                query,
+                (
+                    event.event_id,
+                    event.source,
+                    event.category,
+                    event.headline,
+                    event.summary,
+                    json.dumps(event.symbols),
+                    event.sentiment_score,
+                    event.impact_level.value,
+                    event.url,
+                    event.published_at.isoformat(),
+                    event.created_at.isoformat(),
+                ),
+            )
+        finally:
+            conn.close()
+
+    def save_events(self, events: List[FinancialEvent]) -> int:
+        if not events:
+            return 0
+        conn = self.db.get_connection()
+        inserted = 0
+        try:
+            conn.execute("BEGIN TRANSACTION;")
+            query = """
+            INSERT INTO financial_events (
+                event_id, source, category, headline, summary, symbols,
+                sentiment_score, impact_level, url, published_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id) DO NOTHING;
+            """
+            for ev in events:
+                conn.execute(
+                    query,
+                    (
+                        ev.event_id,
+                        ev.source,
+                        ev.category,
+                        ev.headline,
+                        ev.summary,
+                        json.dumps(ev.symbols),
+                        ev.sentiment_score,
+                        ev.impact_level.value,
+                        ev.url,
+                        ev.published_at.isoformat(),
+                        ev.created_at.isoformat(),
+                    ),
+                )
+                inserted += 1
+            conn.execute("COMMIT;")
+            return inserted
+        except Exception:
+            conn.execute("ROLLBACK;")
+            raise
+        finally:
+            conn.close()
+
+    def get_recent_events(
+        self, limit: int = 50, category: Optional[str] = None, symbol: Optional[str] = None
+    ) -> List[FinancialEvent]:
+        conn = self.db.get_connection()
+        try:
+            sql = "SELECT * FROM financial_events WHERE 1=1"
+            params: List[Any] = []
+            if category:
+                sql += " AND category = ?"
+                params.append(category.upper())
+            if symbol:
+                sql += " AND symbols LIKE ?"
+                params.append(f"%{symbol.upper()}%")
+            sql += " ORDER BY published_at DESC LIMIT ?"
+            params.append(limit)
+
+            cursor = conn.execute(sql, params)
+            events = []
+            for r in cursor.fetchall():
+                symbols_list = []
+                try:
+                    symbols_list = json.loads(r["symbols"]) if r["symbols"] else []
+                except Exception:
+                    symbols_list = [r["symbols"]] if r["symbols"] else []
+
+                events.append(
+                    FinancialEvent(
+                        event_id=r["event_id"],
+                        source=r["source"],
+                        category=r["category"],
+                        headline=r["headline"],
+                        summary=r["summary"],
+                        symbols=symbols_list,
+                        sentiment_score=float(r["sentiment_score"]),
+                        impact_level=EventImpact(r["impact_level"]),
+                        url=r["url"],
+                        published_at=datetime.fromisoformat(r["published_at"]),
+                        created_at=datetime.fromisoformat(r["created_at"]),
+                    )
+                )
+            return events
+        finally:
+            conn.close()
+
 

@@ -5,6 +5,7 @@ Configures WAL mode, indexes, busy timeouts, and table schema initialization.
 import sqlite3
 from pathlib import Path
 from typing import Optional
+from contextlib import contextmanager
 import os
 
 DEFAULT_DB_PATH = Path("data/storage/paper_trader.db")
@@ -120,6 +121,23 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
+
+CREATE TABLE IF NOT EXISTS financial_events (
+    event_id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    category TEXT NOT NULL,
+    headline TEXT NOT NULL,
+    summary TEXT,
+    symbols TEXT,
+    sentiment_score REAL NOT NULL DEFAULT 0.0,
+    impact_level TEXT NOT NULL DEFAULT 'NEUTRAL',
+    url TEXT,
+    published_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_financial_events_published ON financial_events(published_at);
+CREATE INDEX IF NOT EXISTS idx_financial_events_category ON financial_events(category);
 """
 
 
@@ -143,6 +161,20 @@ class DatabaseManager:
         conn.execute("PRAGMA journal_mode = WAL;")
         conn.execute("PRAGMA foreign_keys = ON;")
         return conn
+
+    @contextmanager
+    def transaction(self):
+        """Context manager providing an atomic SQLite transaction with rollback on error."""
+        conn = self.get_connection()
+        conn.execute("BEGIN IMMEDIATE;")
+        try:
+            yield conn
+            conn.execute("COMMIT;")
+        except Exception:
+            conn.execute("ROLLBACK;")
+            raise
+        finally:
+            conn.close()
 
     def initialize_schema(self) -> None:
         """Executes table and index DDL with column migrations for existing databases."""
@@ -170,6 +202,7 @@ class DatabaseManager:
             conn.execute("DROP TABLE IF EXISTS positions;")
             conn.execute("DROP TABLE IF EXISTS portfolio_snapshots;")
             conn.execute("DROP TABLE IF EXISTS audit_logs;")
+            conn.execute("DROP TABLE IF EXISTS financial_events;")
             conn.executescript(SCHEMA_SQL)
         finally:
             conn.close()

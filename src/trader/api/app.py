@@ -29,7 +29,7 @@ from trader.domain.models import (
     DataSource,
 )
 from trader.data.calendar import default_nse_calendar, NSE_MARKET_OPEN, NSE_MARKET_CLOSE
-from trader.data.freshness import evaluate_feed_freshness
+from trader.data.freshness import evaluate_feed_freshness, FreshnessReport, FeedStatus
 from trader.storage.database import DatabaseManager
 from trader.storage.repositories import (
     CandleRepository,
@@ -38,6 +38,7 @@ from trader.storage.repositories import (
     PortfolioRepository,
     PositionRepository,
     AuditRepository,
+    FinancialEventRepository,
 )
 from trader.risk.kill_switch import PersistentKillSwitch
 from trader.risk.checks import RiskManager
@@ -93,11 +94,10 @@ trade_repo = TradeRepository(db_mgr)
 portfolio_repo = PortfolioRepository(db_mgr)
 pos_repo = PositionRepository(db_mgr)
 audit_repo = AuditRepository(db_mgr)
+financial_event_repo = FinancialEventRepository(db_mgr)
 
 kill_switch = PersistentKillSwitch()
-# Ensure fail-closed default is reset if running freshly
-if not kill_switch.state_file.exists():
-    kill_switch.deactivate("Initial local startup")
+# Kill switch starts strictly ENGAGED on missing/unreadable state (Fail-Closed)
 
 accountant = PortfolioAccountant(
     starting_cash=10000.0,
@@ -257,14 +257,22 @@ def get_instrument_details(symbol: str) -> Dict[str, Any]:
             q_data = {
                 "symbol": sym,
                 "ltp": last_c.close,
-                "bid": round(last_c.close * 0.9995, 2),
-                "ask": round(last_c.close * 1.0005, 2),
+                "bid": None,
+                "ask": None,
                 "volume": last_c.volume,
                 "timestamp": last_c.timestamp.isoformat(),
-                "source": last_c.source.value,
+                "source": DataSource.HISTORICAL.value,
             }
         else:
-            q_data = {"symbol": sym, "ltp": 1000.0, "source": "UNAVAILABLE"}
+            q_data = {
+                "symbol": sym,
+                "ltp": None,
+                "bid": None,
+                "ask": None,
+                "volume": None,
+                "timestamp": None,
+                "source": DataSource.UNAVAILABLE.value,
+            }
 
     return {
         "instrument": inst.model_dump(),
@@ -350,6 +358,28 @@ def propose_order(req: OrderProposalRequest) -> Dict[str, Any]:
     portfolio = accountant.get_portfolio_state()
     open_positions = list(accountant.positions.values())
 
+    # Assess feed freshness for symbol
+    provider = get_market_provider()
+    feed_freshness = None
+    try:
+        quote = provider.get_latest_quote(sym)
+        if quote.source in (DataSource.UNAVAILABLE, DataSource.ERROR, DataSource.STALE):
+            feed_freshness = FreshnessReport(
+                status=FeedStatus.STALE if quote.source == DataSource.STALE else FeedStatus.DISCONNECTED,
+                is_actionable=False,
+                latency_seconds=999999.0,
+                is_market_open=default_nse_calendar.is_market_open(),
+                message=f"Market data feed source is {quote.source.value}; fresh actionable feed required.",
+            )
+        else:
+            feed_freshness = evaluate_feed_freshness(quote.timestamp)
+    except Exception:
+        candles = provider.get_historical_candles(sym)
+        if candles:
+            feed_freshness = evaluate_feed_freshness(candles[-1].timestamp)
+        else:
+            feed_freshness = evaluate_feed_freshness(None)
+
     assessment = risk_mgr.assess_order(
         symbol=sym,
         side=req.side,
@@ -357,6 +387,7 @@ def propose_order(req: OrderProposalRequest) -> Dict[str, Any]:
         stop_loss=req.stop_loss,
         portfolio=portfolio,
         open_positions=open_positions,
+        feed_freshness=feed_freshness,
     )
 
     return {
@@ -373,6 +404,29 @@ def propose_order(req: OrderProposalRequest) -> Dict[str, Any]:
 def execute_order(req: OrderExecuteRequest) -> Dict[str, Any]:
     """Executes a simulated paper order with institutional statutory costs and risk re-validation."""
     sym = req.symbol.strip().upper()
+
+    # Re-evaluate feed freshness at time of simulated fill
+    provider = get_market_provider()
+    feed_freshness = None
+    try:
+        quote = provider.get_latest_quote(sym)
+        if quote.source in (DataSource.UNAVAILABLE, DataSource.ERROR, DataSource.STALE):
+            feed_freshness = FreshnessReport(
+                status=FeedStatus.STALE if quote.source == DataSource.STALE else FeedStatus.DISCONNECTED,
+                is_actionable=False,
+                latency_seconds=999999.0,
+                is_market_open=default_nse_calendar.is_market_open(),
+                message=f"Market data feed source is {quote.source.value}; fresh actionable feed required.",
+            )
+        else:
+            feed_freshness = evaluate_feed_freshness(quote.timestamp)
+    except Exception:
+        candles = provider.get_historical_candles(sym)
+        if candles:
+            feed_freshness = evaluate_feed_freshness(candles[-1].timestamp)
+        else:
+            feed_freshness = evaluate_feed_freshness(None)
+
     order, trade, assessment = paper_broker.submit_simulated_order(
         symbol=sym,
         side=req.side,
@@ -380,6 +434,7 @@ def execute_order(req: OrderExecuteRequest) -> Dict[str, Any]:
         stop_loss=req.stop_loss,
         quantity=req.quantity,
         order_type=req.order_type,
+        feed_freshness=feed_freshness,
     )
 
     return {

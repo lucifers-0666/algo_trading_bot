@@ -18,8 +18,11 @@ class DataSource(str, Enum):
     CACHED = "CACHED"
     SYNTHETIC = "SYNTHETIC"
     UNAVAILABLE = "UNAVAILABLE"
+    STALE = "STALE"
+    ERROR = "ERROR"
     CSV = "csv"
     TRUEDATA = "truedata"
+    DHAN = "dhan"
 
 
 class Timeframe(str, Enum):
@@ -211,4 +214,27 @@ class AuditLog(BaseModel):
     symbol: Optional[str] = None
     details: Dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(IST))
+
+
+class EventImpact(str, Enum):
+    POSITIVE = "POSITIVE"
+    NEGATIVE = "NEGATIVE"
+    NEUTRAL = "NEUTRAL"
+    HIGH_VOLATILITY = "HIGH_VOLATILITY"
+
+
+class FinancialEvent(BaseModel):
+    """Institutional news and financial event record."""
+    event_id: str
+    source: str # GDELT, NSE_CORP, BSE_CORP, SEBI, RBI, PIB
+    category: str # EARNINGS, M_AND_A, REGULATORY, ORDER_WIN, MACRO, GEOPOLITICAL
+    headline: str
+    summary: Optional[str] = None
+    symbols: List[str] = Field(default_factory=list)
+    sentiment_score: float = Field(default=0.0, ge=-1.0, le=1.0)
+    impact_level: EventImpact = EventImpact.NEUTRAL
+    url: Optional[str] = None
+    published_at: datetime
+    created_at: datetime = Field(default_factory=lambda: datetime.now(IST))
+
 
