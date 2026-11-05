@@ -1,5 +1,5 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Wallet,
   Activity,
@@ -11,6 +11,9 @@ import {
   ArrowRight,
   CandlestickChart,
   Wifi,
+  Bot,
+  Play,
+  Pause,
 } from "lucide-react";
 import {
   getPortfolio,
@@ -18,6 +21,9 @@ import {
   getDataHealth,
   getScannerCandidates,
   getOrders,
+  getBotStatus,
+  startBot,
+  stopBot,
 } from "../lib/api";
 import { Badge } from "../components/Badge";
 
@@ -26,6 +32,24 @@ interface OverviewViewProps {
 }
 
 export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
+  const queryClient = useQueryClient();
+
+  const { data: botStatus } = useQuery({
+    queryKey: ["botStatus"],
+    queryFn: () => getBotStatus(),
+    refetchInterval: 3000,
+  });
+
+  const startBotMutation = useMutation({
+    mutationFn: () => startBot(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["botStatus"] }),
+  });
+
+  const stopBotMutation = useMutation({
+    mutationFn: () => stopBot(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["botStatus"] }),
+  });
+
   const { data: portfolio } = useQuery({
     queryKey: ["portfolio"],
     queryFn: () => getPortfolio(),
@@ -74,6 +98,54 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate }) => {
           <span>Simulated execution with realistic statutory Indian delivery costs and strict risk limits. No real capital or broker routing is enabled.</span>
         </div>
         <span className="notice-status">ISOLATED SIMULATION</span>
+      </div>
+
+      {/* Autonomous Bot Banner */}
+      <div className="bg-card border border-border rounded-xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-xl ${botStatus?.is_running ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+            <Bot size={22} />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-foreground flex items-center gap-2">
+              Autonomous Paper Trading Bot
+              <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold ${botStatus?.is_running ? "bg-green-100 text-green-800 animate-pulse" : "bg-amber-100 text-amber-800"}`}>
+                {botStatus?.is_running ? "● BOT ACTIVE & TRADING" : "○ BOT PAUSED / IDLE"}
+              </span>
+            </div>
+            <div className="text-xs text-muted mt-0.5">
+              {botStatus?.is_running
+                ? `Scanning every ${botStatus.scan_interval_seconds}s for NSE momentum/swing setups & managing trailing stops.`
+                : "The autonomous bot is currently paused. Click 'Start Auto-Trader' or open the Bot Controller to activate automated simulated trading."}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {botStatus?.is_running ? (
+            <button
+              onClick={() => stopBotMutation.mutate()}
+              disabled={stopBotMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition"
+            >
+              <Pause size={14} /> Pause Bot
+            </button>
+          ) : (
+            <button
+              onClick={() => startBotMutation.mutate()}
+              disabled={startBotMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-700 text-white hover:bg-green-800 transition"
+            >
+              <Play size={14} /> Start Auto-Trader
+            </button>
+          )}
+          <button
+            onClick={() => onNavigate("Auto-trading bot")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-card hover:bg-muted/10 transition"
+          >
+            Open Bot Controller <ArrowRight size={14} />
+          </button>
+        </div>
       </div>
 
       {/* Top Metric Grid */}

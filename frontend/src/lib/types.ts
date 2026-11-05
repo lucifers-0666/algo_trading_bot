@@ -463,3 +463,26 @@ export interface DecisionDossierResult {
 }
 
 
+
+
+export interface BotLogEntry {
+  timestamp: string;
+  event_type: string;
+  symbol: string;
+  message: string;
+  details?: Record<string, any>;
+}
+
+export interface BotStatus {
+  is_running: boolean;
+  force_market_open: boolean;
+  scan_interval_seconds: number;
+  is_market_hours: boolean;
+  effective_market_active: boolean;
+  last_scan_time?: string;
+  open_positions_count: number;
+  cash_balance: number;
+  total_equity: number;
+  total_auto_trades: number;
+  recent_logs: BotLogEntry[];
+}

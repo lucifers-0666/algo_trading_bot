@@ -168,6 +168,17 @@ def get_market_provider():
 scanner_engine = MarketScannerEngine(provider=get_market_provider())
 universe_mgr = UniverseManager()
 
+from trader.paper.daemon import AutonomousPaperTradingDaemon
+
+auto_trader = AutonomousPaperTradingDaemon(
+    broker=paper_broker,
+    decision_engine=decision_engine,
+    scanner_engine=scanner_engine,
+    risk_manager=risk_mgr,
+    protection_manager=protection_mgr,
+    scan_interval_seconds=30,
+)
+
 
 # -----------------------------------------------------------------------------
 # 1. System Health & Status Endpoints
@@ -842,3 +853,43 @@ def evaluate_trade_decision(req: DecisionEvaluateRequest) -> Dict[str, Any]:
         open_positions=positions,
     )
     return dossier.model_dump()
+
+
+# -----------------------------------------------------------------------------
+# 11. Autonomous Paper Trading Bot Controller Endpoints
+# -----------------------------------------------------------------------------
+@app.get("/api/v1/bot/status", tags=["bot"])
+def get_bot_status() -> dict[str, Any]:
+    """Returns autonomous paper trading bot state, schedule, and recent live activity."""
+    return auto_trader.get_status()
+
+
+@app.post("/api/v1/bot/start", tags=["bot"])
+def start_bot() -> dict[str, Any]:
+    """Starts the autonomous paper trading background execution loop."""
+    auto_trader.start()
+    return {"status": "started", "message": "Autonomous paper trading daemon started."}
+
+
+@app.post("/api/v1/bot/stop", tags=["bot"])
+def stop_bot() -> dict[str, Any]:
+    """Stops the autonomous paper trading background execution loop."""
+    auto_trader.stop()
+    return {"status": "stopped", "message": "Autonomous paper trading daemon stopped."}
+
+
+@app.post("/api/v1/bot/step", tags=["bot"])
+def step_bot() -> dict[str, Any]:
+    """Executes a single evaluation and paper trading cycle on demand."""
+    result = auto_trader.run_iteration()
+    return {"status": "completed", "result": result}
+
+
+@app.post("/api/v1/bot/config", tags=["bot"])
+def config_bot(force_market_open: Optional[bool] = Body(None), interval: Optional[int] = Body(None)) -> dict[str, Any]:
+    """Updates auto-trader operating mode parameters."""
+    if force_market_open is not None:
+        auto_trader.force_market_open = force_market_open
+    if interval is not None and interval >= 5:
+        auto_trader.scan_interval_seconds = interval
+    return auto_trader.get_status()

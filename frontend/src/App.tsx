@@ -25,6 +25,7 @@ import {
   Globe,
   CheckCircle2,
   Cpu,
+  Bot,
 } from "lucide-react";
 import { getApiHealth, getMarketSession } from "./lib/api";
 
@@ -37,6 +38,7 @@ import { FinancialIntelligenceView } from "./views/FinancialIntelligenceView";
 import { LocalAiResearchView } from "./views/LocalAiResearchView";
 import { DecisionSupportView } from "./views/DecisionSupportView";
 import { LookaheadAuditView } from "./views/LookaheadAuditView";
+import { AutoTraderBotView } from "./views/AutoTraderBotView";
 import { StrategyLabView } from "./views/StrategyLabView";
 import { MlResearchLabView } from "./views/MlResearchLabView";
 import { BacktestingLabView } from "./views/BacktestingLabView";
@@ -66,6 +68,7 @@ export type PageKey =
   | "Strategy comparison"
   | "Model registry"
   | "Trading terminal"
+  | "Auto-trading bot"
   | "Portfolio & holdings"
   | "Order history"
   | "Performance analytics"
@@ -107,6 +110,7 @@ const navigation: NavGroup[] = [
     group: "SIMULATED PAPER TRADING",
     items: [
       { label: "Trading terminal", icon: ShoppingCart },
+      { label: "Auto-trading bot", icon: Bot },
       { label: "Portfolio & holdings", icon: Wallet },
       { label: "Order history", icon: History },
       { label: "Performance analytics", icon: TrendingUp },
@@ -171,6 +175,7 @@ export default function App() {
       "Strategy comparison": "Evaluate multiple strategies side-by-side under identical market conditions.",
       "Model registry": "Catalog of registered machine-learning models and out-of-sample metrics.",
       "Trading terminal": "Simulated order proposal, pre-trade risk verification, and virtual execution.",
+      "Auto-trading bot": "Autonomous paper trading daemon monitoring the Indian market, scanning alpha setups, and executing simulated trades.",
       "Portfolio & holdings": "Active open equity holdings with mark-to-market valuation and P&L.",
       "Order history": "Immutable audit trail of all simulated orders, fills, and rejections.",
       "Performance analytics": "In-depth portfolio return metrics, equity curves, and fee attribution.",
@@ -348,6 +353,7 @@ export default function App() {
             {activePage === "Trading terminal" && (
               <TradingTerminalView initialSymbol={activeSymbol} onNavigate={handleNavigate} />
             )}
+            {activePage === "Auto-trading bot" && <AutoTraderBotView />}
             {activePage === "Portfolio & holdings" && <PortfolioView onNavigate={handleNavigate} />}
             {activePage === "Order history" && <OrderHistoryView onNavigate={handleNavigate} />}
             {activePage === "Performance analytics" && (

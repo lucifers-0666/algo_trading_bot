@@ -30,6 +30,7 @@ import type {
   LookaheadAuditResult,
   HyperoptLeaderboardResult,
   DecisionDossierResult,
+  BotStatus,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -322,6 +323,35 @@ export function evaluateDecision(
   signal?: AbortSignal
 ): Promise<DecisionDossierResult> {
   return fetchJson<DecisionDossierResult>("/v1/decision/evaluate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+
+// 13. Autonomous Paper Trading Bot
+export function getBotStatus(signal?: AbortSignal): Promise<BotStatus> {
+  return fetchJson<BotStatus>("/v1/bot/status", { method: "GET", signal });
+}
+
+export function startBot(signal?: AbortSignal): Promise<{ status: string; message: string }> {
+  return fetchJson<{ status: string; message: string }>("/v1/bot/start", { method: "POST", signal });
+}
+
+export function stopBot(signal?: AbortSignal): Promise<{ status: string; message: string }> {
+  return fetchJson<{ status: string; message: string }>("/v1/bot/stop", { method: "POST", signal });
+}
+
+export function stepBot(signal?: AbortSignal): Promise<{ status: string; result: any }> {
+  return fetchJson<{ status: string; result: any }>("/v1/bot/step", { method: "POST", signal });
+}
+
+export function configBot(
+  payload: { force_market_open?: boolean; interval?: number },
+  signal?: AbortSignal
+): Promise<BotStatus> {
+  return fetchJson<BotStatus>("/v1/bot/config", {
     method: "POST",
     body: JSON.stringify(payload),
     signal,
