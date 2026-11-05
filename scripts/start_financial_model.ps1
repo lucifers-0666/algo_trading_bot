@@ -34,3 +34,4 @@ if ($llamaServer -and (Test-Path $ModelPath)) {
     Write-Host "  The platform will seamlessly run the built-in deterministic quantitative reasoning engine." -ForegroundColor Yellow
     Write-Host "  To enable full local LLM inference, install Ollama (https://ollama.com) or download llama.cpp." -ForegroundColor Cyan
 }
+

@@ -13,3 +13,4 @@ Output must be structured JSON adhering strictly to:
 Headline: {headline}
 Content: {content}
 Symbol: {symbol}
+

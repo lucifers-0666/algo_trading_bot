@@ -121,3 +121,4 @@ def test_intelligence_engine_record_and_sentiment_aggregation(tmp_path):
     assert infy_sentiment["symbol"] == "INFY"
     assert infy_sentiment["events_count"] == 1
     assert infy_sentiment["sentiment_score"] > 0.0
+

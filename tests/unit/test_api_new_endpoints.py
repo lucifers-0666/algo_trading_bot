@@ -95,3 +95,4 @@ def test_decision_evaluate_endpoint():
     assert "action" in dec_data
     assert "composite_score" in dec_data
     assert dec_data["human_confirmation_required"] is True
+

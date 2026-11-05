@@ -24,3 +24,4 @@ def test_strategy_hyperopt_runner():
     assert report.trials_evaluated == 2
     assert len(report.leaderboard) == 2
     assert "total_return_pct" in report.best_metrics
+

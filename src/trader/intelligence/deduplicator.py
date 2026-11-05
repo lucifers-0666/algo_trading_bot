@@ -89,3 +89,4 @@ class EventDeduplicator:
         """Clears in-memory deduplication cache."""
         self._seen_hashes.clear()
         self._history.clear()
+

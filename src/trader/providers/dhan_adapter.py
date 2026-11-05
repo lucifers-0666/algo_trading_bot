@@ -215,3 +215,4 @@ class DhanAdapter(MarketDataProvider):
         except Exception as e:
             logger.error(f"DhanAdapter historical candle error for {sym}: {e}")
             return []
+

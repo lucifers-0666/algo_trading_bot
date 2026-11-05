@@ -105,3 +105,4 @@ Under SEBI (Stock Brokers) Regulations and circulars on algorithmic trading:
 - Automated order routing directly to broker trading gateways requires formal broker approval, algorithmic certification, and risk compliance audits.
 - **Personal Quantitative Research and Virtual Paper Trading** operate outside SEBI algorithmic certification requirements, provided **zero live broker orders or demat routing occur**.
 - Our platform strictly adheres to this boundary: all trade proposals are virtual, executed inside our simulated ledger, and require explicit human operator confirmation.
+

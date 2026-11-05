@@ -103,3 +103,4 @@ def test_nse_calendar_dynamic_holiday_addition_and_removal():
 
     cal.remove_holiday(test_day)
     assert cal.is_trading_day(test_day) is True
+

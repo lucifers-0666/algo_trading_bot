@@ -74,3 +74,4 @@ class StockDossierResponse(BaseModel):
     trade_suitability: str # SUITABLE_SWING, MONITOR_ONLY, AVOID
     generated_at: str
     ai_provider: str
+

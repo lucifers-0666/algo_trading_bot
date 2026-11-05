@@ -149,3 +149,4 @@ class SectorRelativeStrengthStrategy:
             )
 
         return None
+

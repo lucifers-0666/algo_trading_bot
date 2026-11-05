@@ -143,3 +143,4 @@ class NewsSentimentStrategy:
             )
 
         return None
+

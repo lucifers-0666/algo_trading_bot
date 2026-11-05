@@ -78,3 +78,4 @@ def test_ai_client_generate_dossier():
     assert res.symbol == "RELIANCE"
     assert res.trade_suitability == "SUITABLE_SWING"
     assert len(res.key_strengths) > 0
+

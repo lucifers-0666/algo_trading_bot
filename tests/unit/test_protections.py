@@ -65,3 +65,4 @@ def test_winning_trade_resets_loss_counter():
     # Win resets streak to 0
     manager.record_trade_result("RELIANCE", pnl_inr=+450.0)
     assert manager._consecutive_losses == 0
+

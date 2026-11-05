@@ -104,3 +104,4 @@ class GDELTClient:
         except Exception as e:
             logger.warning(f"GDELT network request failed: {e}. Operating in graceful offline mode.")
             return []
+

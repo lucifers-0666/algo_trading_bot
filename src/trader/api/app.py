@@ -8,7 +8,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import json
+import os
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,6 +51,8 @@ from trader.paper.accounting import PortfolioAccountant
 from trader.paper.broker import VirtualPaperBroker
 from trader.providers.csv_provider import CSVDataProvider
 from trader.providers.synthetic_provider import SyntheticDataProvider
+from trader.providers.dhan_adapter import DhanAdapter
+from trader.providers.truedata_adapter import TrueDataAdapter
 from trader.scanner.ranking import MarketScannerEngine
 from trader.universe.instruments import UniverseManager
 from trader.features.technical import candles_to_dataframe, compute_all_indicators
@@ -138,11 +144,23 @@ lookahead_detector = LookaheadDetector()
 hyperopt_runner = StrategyHyperoptRunner(initial_capital=10000.0)
 
 # Providers
+dhan_client_id = os.getenv("DHAN_CLIENT_ID", "").strip()
+dhan_access_token = os.getenv("DHAN_ACCESS_TOKEN", "").strip()
+dhan_adapter = DhanAdapter(client_id=dhan_client_id, access_token=dhan_access_token) if (dhan_client_id and dhan_access_token) else None
+
+truedata_user = os.getenv("TRUEDATA_USERNAME", "").strip()
+truedata_pass = os.getenv("TRUEDATA_PASSWORD", "").strip()
+truedata_adapter = TrueDataAdapter(username=truedata_user, password=truedata_pass) if (truedata_user and truedata_pass) else None
+
 csv_path = Path("data/sample")
 csv_provider = CSVDataProvider(data_path=csv_path) if csv_path.exists() else None
 synth_provider = SyntheticDataProvider(seed=42)
 
 def get_market_provider():
+    if dhan_adapter and dhan_adapter.is_configured:
+        return dhan_adapter
+    if truedata_adapter and truedata_adapter.is_configured:
+        return truedata_adapter
     if csv_provider and len(csv_provider.get_available_symbols()) > 0:
         return csv_provider
     return synth_provider
@@ -168,11 +186,14 @@ def health() -> dict[str, str]:
 @app.get("/api/v1/status", tags=["system"])
 def status() -> dict[str, Any]:
     """Expose integration state without claiming live real order routing."""
+    is_live = bool((dhan_adapter and dhan_adapter.is_configured) or (truedata_adapter and truedata_adapter.is_configured))
+    active_provider = get_market_provider()
+    provider_name = active_provider.source_type.value if hasattr(active_provider, "source_type") else "not_connected"
     return {
         "mode": "paper",
         "real_order_routing_enabled": False,
-        "market_data_provider": "not_connected",
-        "market_data_status": "not_configured",
+        "market_data_provider": provider_name if is_live else "not_connected",
+        "market_data_status": "connected" if is_live else "not_configured",
         "scanner_status": "ready",
         "ml_inference_status": "ready",
         "kill_switch_active": kill_switch.is_active(),

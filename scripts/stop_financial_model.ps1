@@ -24,3 +24,4 @@ if ($llamaProcs) {
 }
 
 Write-Host "Local Financial AI Model Server stopped." -ForegroundColor Green
+

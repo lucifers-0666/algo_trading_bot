@@ -123,3 +123,4 @@ Despite these domain differences, Freqtrade incorporates several software engine
 - [x] Verified all mathematical models and loss metrics are documented from open quantitative literature.
 - [x] Defined independent test suites for all clean-room adopted patterns.
 - [x] Formally documented license boundary in project documentation.
+

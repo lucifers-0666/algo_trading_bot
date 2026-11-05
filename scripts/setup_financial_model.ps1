@@ -67,3 +67,4 @@ Write-Host "  Run: .\scripts\start_financial_model.ps1"
 Write-Host "`n[5/5] Verification:" -ForegroundColor Yellow
 Write-Host "  Run: .\scripts\verify_financial_model.ps1" -ForegroundColor Cyan
 Write-Host "`nSetup complete!" -ForegroundColor Green
+

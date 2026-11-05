@@ -192,3 +192,4 @@ class FinancialIntelligenceEngine:
                 for e in events[:5]
             ],
         }
+

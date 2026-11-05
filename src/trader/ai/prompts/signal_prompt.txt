@@ -18,3 +18,4 @@ Target: ₹{target}
 Market Regime: {regime}
 Indicators: {indicators}
 ML Confidence: {ml_confidence}
+
