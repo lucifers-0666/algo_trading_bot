@@ -324,3 +324,142 @@ export interface AuditLog {
   timestamp: string;
 }
 
+export interface FinancialEventItem {
+  event_id: string;
+  source: string;
+  category: string;
+  headline: string;
+  summary?: string | null;
+  symbols: string[];
+  sentiment_score: number;
+  impact_level: "POSITIVE" | "NEGATIVE" | "NEUTRAL" | "HIGH_VOLATILITY";
+  url?: string | null;
+  published_at: string;
+  created_at: string;
+}
+
+export interface MarketSentimentSummary {
+  overall_sentiment_score: number;
+  sentiment_label: "BULLISH" | "BEARISH" | "NEUTRAL";
+  total_events_analyzed: number;
+  positive_count: number;
+  negative_count: number;
+  neutral_count: number;
+  category_breakdown: Record<string, number>;
+}
+
+export interface SymbolSentiment {
+  symbol: string;
+  sentiment_score: number;
+  sentiment_label: string;
+  events_count: number;
+  recent_headlines: {
+    headline: string;
+    published_at: string;
+    category: string;
+    impact: string;
+    score: number;
+  }[];
+}
+
+export interface AIHealth {
+  status: string;
+  model_name: string;
+  provider: string;
+  gpu_acceleration: boolean;
+  endpoint: string;
+  latency_ms: number;
+  details: string;
+}
+
+export interface NewsAnalysisResult {
+  symbol?: string | null;
+  sentiment_score: number;
+  sentiment_label: string;
+  impact_level: string;
+  key_drivers: string[];
+  risk_factors: string[];
+  suggested_action: string;
+  reasoning: string;
+}
+
+export interface SignalExplanationResult {
+  symbol: string;
+  strategy_name: string;
+  thesis: string;
+  technical_rationale: string[];
+  risk_reward_assessment: string;
+  caution_flags: string[];
+  confidence_score: number;
+  human_verdict: string;
+}
+
+export interface StockDossierResult {
+  symbol: string;
+  executive_summary: string;
+  trend_verdict: string;
+  sentiment_verdict: string;
+  key_strengths: string[];
+  key_risks: string[];
+  trade_suitability: string;
+  generated_at: string;
+  ai_provider: string;
+}
+
+export interface LookaheadAuditResult {
+  strategy_name: string;
+  is_clean: boolean;
+  total_bars_audited: number;
+  discrepancies_count: number;
+  discrepancies: {
+    bar_index: number;
+    timestamp: string;
+    symbol: string;
+    issue_type: string;
+    details: string;
+    indicators_diff: Record<string, any>;
+  }[];
+  verdict: string;
+}
+
+export interface HyperoptLeaderboardResult {
+  strategy_name: string;
+  trials_evaluated: number;
+  best_params: Record<string, any>;
+  best_score: number;
+  best_metrics: Record<string, any>;
+  leaderboard: {
+    params: Record<string, any>;
+    total_trades: number;
+    win_rate_pct: number;
+    total_return_pct: number;
+    max_drawdown_pct: number;
+    profit_factor: number;
+    sortino_ratio: number;
+    calmar_ratio: number;
+    score: number;
+  }[];
+}
+
+export interface DecisionDossierResult {
+  symbol: string;
+  action: "APPROVE_PAPER_BUY" | "WAIT_FOR_CONFIRMATION" | "REJECT";
+  composite_score: number;
+  technical_conviction: number;
+  ml_conviction: number;
+  sentiment_conviction: number;
+  regime_conviction: number;
+  entry_price: number;
+  stop_loss: number;
+  target: number;
+  risk_reward_ratio: number;
+  suggested_quantity: number;
+  risk_approved: boolean;
+  rejection_reasons: string[];
+  key_catalysts: string[];
+  caution_flags: string[];
+  timestamp: string;
+  human_confirmation_required: boolean;
+}
+
+

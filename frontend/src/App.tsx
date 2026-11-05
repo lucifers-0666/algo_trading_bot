@@ -22,14 +22,21 @@ import {
   FileText,
   Sliders,
   HardDrive,
+  Globe,
+  CheckCircle2,
+  Cpu,
 } from "lucide-react";
 import { getApiHealth, getMarketSession } from "./lib/api";
 
-// Import all 17 Views
+// Import all Views
 import { OverviewView } from "./views/OverviewView";
 import { MarketScannerView } from "./views/MarketScannerView";
 import { InstrumentMasterView } from "./views/InstrumentMasterView";
 import { StockResearchView } from "./views/StockResearchView";
+import { FinancialIntelligenceView } from "./views/FinancialIntelligenceView";
+import { LocalAiResearchView } from "./views/LocalAiResearchView";
+import { DecisionSupportView } from "./views/DecisionSupportView";
+import { LookaheadAuditView } from "./views/LookaheadAuditView";
 import { StrategyLabView } from "./views/StrategyLabView";
 import { MlResearchLabView } from "./views/MlResearchLabView";
 import { BacktestingLabView } from "./views/BacktestingLabView";
@@ -46,10 +53,14 @@ import { SystemSettingsView } from "./views/SystemSettingsView";
 
 export type PageKey =
   | "Overview"
+  | "Decision support"
   | "Market scanner"
+  | "Global intelligence"
+  | "Local financial AI"
   | "Instrument master"
   | "Stock research"
   | "Strategy lab"
+  | "Lookahead & Hyperopt"
   | "ML research lab"
   | "Backtests"
   | "Strategy comparison"
@@ -73,16 +84,20 @@ const navigation: NavGroup[] = [
     group: "WORKSPACE",
     items: [
       { label: "Overview", icon: LayoutDashboard },
+      { label: "Decision support", icon: ShieldCheck },
       { label: "Market scanner", icon: Search },
-      { label: "Instrument master", icon: Database },
+      { label: "Global intelligence", icon: Globe },
       { label: "Stock research", icon: CandlestickChart },
+      { label: "Instrument master", icon: Database },
     ],
   },
   {
-    group: "QUANT RESEARCH & ML",
+    group: "QUANT RESEARCH & AI",
     items: [
+      { label: "Local financial AI", icon: BrainCircuit },
       { label: "Strategy lab", icon: Sliders },
-      { label: "ML research lab", icon: BrainCircuit },
+      { label: "Lookahead & Hyperopt", icon: CheckCircle2 },
+      { label: "ML research lab", icon: Cpu },
       { label: "Backtests", icon: FlaskConical },
       { label: "Strategy comparison", icon: Scale },
       { label: "Model registry", icon: Layers },
@@ -143,10 +158,14 @@ export default function App() {
   const subtitle = useMemo(() => {
     const titles: Record<PageKey, string> = {
       "Overview": "A unified executive telemetry of your research and simulated portfolio.",
+      "Decision support": "Unified confluence engine synthesizing technical signals, ML probabilities, regime, and news sentiment into explainable dossiers.",
       "Market scanner": "Discover eligible NSE swing candidates using multi-factor technical screening.",
+      "Global intelligence": "Global macroeconomic news, corporate disclosure filings, and event sentiment tracking.",
+      "Local financial AI": "Local quantized reasoning models (Fin-R1 / FinGPT) running on RTX 5060 GPU with heuristic fallback.",
       "Instrument master": "Authoritative instrument master records, lot sizing, and tick specifications.",
       "Stock research": "High-density technical analysis charts, indicators, and market regime classification.",
       "Strategy lab": "Configure quantitative trading rules and review look-ahead bias prevention.",
+      "Lookahead & Hyperopt": "Strategy audit verifying 0% future data leakage and systematic Sortino/Calmar parameter optimization.",
       "ML research lab": "Train chronological machine-learning models with purge gaps and zero label leakage.",
       "Backtests": "Event-driven historical backtesting with realistic execution and statutory taxes.",
       "Strategy comparison": "Evaluate multiple strategies side-by-side under identical market conditions.",
@@ -302,15 +321,26 @@ export default function App() {
             </div>
           </section>
 
-          {/* Render Active View from 17 Views */}
+          {/* Render Active View */}
           <div className="active-view-wrapper">
             {activePage === "Overview" && <OverviewView onNavigate={handleNavigate} />}
+            {activePage === "Decision support" && (
+              <DecisionSupportView
+                activeSymbol={activeSymbol}
+                onNavigateToPortfolio={() => setActivePage("Portfolio & holdings")}
+              />
+            )}
             {activePage === "Market scanner" && <MarketScannerView onNavigate={handleNavigate} />}
+            {activePage === "Global intelligence" && (
+              <FinancialIntelligenceView onSelectSymbol={(sym) => handleNavigate("Stock research", sym)} />
+            )}
+            {activePage === "Local financial AI" && <LocalAiResearchView activeSymbol={activeSymbol} />}
             {activePage === "Instrument master" && <InstrumentMasterView onNavigate={handleNavigate} />}
             {activePage === "Stock research" && (
               <StockResearchView initialSymbol={activeSymbol} onNavigate={handleNavigate} />
             )}
             {activePage === "Strategy lab" && <StrategyLabView onNavigate={handleNavigate} />}
+            {activePage === "Lookahead & Hyperopt" && <LookaheadAuditView activeSymbol={activeSymbol} />}
             {activePage === "ML research lab" && <MlResearchLabView onNavigate={handleNavigate} />}
             {activePage === "Backtests" && <BacktestingLabView onNavigate={handleNavigate} />}
             {activePage === "Strategy comparison" && <StrategyComparisonView onNavigate={handleNavigate} />}

@@ -20,6 +20,16 @@ import type {
   StrategyComparisonReport,
   ModelMetadata,
   AuditLog,
+  FinancialEventItem,
+  MarketSentimentSummary,
+  SymbolSentiment,
+  AIHealth,
+  NewsAnalysisResult,
+  SignalExplanationResult,
+  StockDossierResult,
+  LookaheadAuditResult,
+  HyperoptLeaderboardResult,
+  DecisionDossierResult,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -193,6 +203,127 @@ export function setKillSwitch(
   return fetchJson<{ active: boolean; reason: string }>("/v1/risk/kill-switch", {
     method: "POST",
     body: JSON.stringify({ action, reason }),
+    signal,
+  });
+}
+
+// 9. Financial Intelligence & News
+export function getFinancialNews(category?: string, symbol?: string, limit = 50, signal?: AbortSignal): Promise<FinancialEventItem[]> {
+  const params = new URLSearchParams();
+  if (category) params.set("category", category);
+  if (symbol) params.set("symbol", symbol);
+  params.set("limit", String(limit));
+  return fetchJson<FinancialEventItem[]>(`/v1/intelligence/news?${params.toString()}`, { method: "GET", signal });
+}
+
+export function getFinancialSummary(signal?: AbortSignal): Promise<MarketSentimentSummary> {
+  return fetchJson<MarketSentimentSummary>("/v1/intelligence/summary", { method: "GET", signal });
+}
+
+export function getSymbolSentiment(symbol: string, signal?: AbortSignal): Promise<SymbolSentiment> {
+  return fetchJson<SymbolSentiment>(`/v1/intelligence/symbols/${encodeURIComponent(symbol)}`, { method: "GET", signal });
+}
+
+export function refreshFinancialNews(signal?: AbortSignal): Promise<{ success: boolean; new_events_ingested: number; refreshed_at: string }> {
+  return fetchJson<{ success: boolean; new_events_ingested: number; refreshed_at: string }>("/v1/intelligence/refresh", {
+    method: "POST",
+    signal,
+  });
+}
+
+// 10. Specialist Local Financial AI
+export function getAiHealth(signal?: AbortSignal): Promise<AIHealth> {
+  return fetchJson<AIHealth>("/v1/ai/health", { method: "GET", signal });
+}
+
+export function analyzeNews(
+  payload: { headline: string; content?: string; symbol?: string },
+  signal?: AbortSignal
+): Promise<NewsAnalysisResult> {
+  return fetchJson<NewsAnalysisResult>("/v1/ai/analyse-news", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+export function explainSignal(
+  payload: {
+    symbol: string;
+    strategy_name: string;
+    side: string;
+    price: number;
+    stop_loss: number;
+    target?: number;
+    indicators?: Record<string, any>;
+  },
+  signal?: AbortSignal
+): Promise<SignalExplanationResult> {
+  return fetchJson<SignalExplanationResult>("/v1/ai/explain-signal", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+export function getStockDossier(
+  payload: { symbol: string; current_price?: number; regime?: string; news_headlines?: string[] },
+  signal?: AbortSignal
+): Promise<StockDossierResult> {
+  return fetchJson<StockDossierResult>("/v1/ai/dossier", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+// 11. Strategy Auditing & Protections
+export function auditStrategyLookahead(
+  payload: { symbol: string; strategy_name?: string },
+  signal?: AbortSignal
+): Promise<LookaheadAuditResult> {
+  return fetchJson<LookaheadAuditResult>("/v1/strategies/lookahead-audit", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+export function runStrategyHyperopt(
+  payload: { symbols: string[]; max_trials?: number },
+  signal?: AbortSignal
+): Promise<HyperoptLeaderboardResult> {
+  return fetchJson<HyperoptLeaderboardResult>("/v1/strategies/hyperopt", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+export function getProtectionStatus(signal?: AbortSignal): Promise<{
+  is_locked: boolean;
+  lock_reason?: string;
+  consecutive_losses: number;
+  symbols_in_cooldown: Record<string, string>;
+}> {
+  return fetchJson("/v1/strategies/protections", { method: "GET", signal });
+}
+
+export function resetProtections(signal?: AbortSignal): Promise<{ success: boolean; message: string }> {
+  return fetchJson<{ success: boolean; message: string }>("/v1/strategies/protections/reset", {
+    method: "POST",
+    signal,
+  });
+}
+
+// 12. Decision Support
+export function evaluateDecision(
+  payload: { symbol: string; price: number; stop_loss: number; target?: number; strategy_name?: string },
+  signal?: AbortSignal
+): Promise<DecisionDossierResult> {
+  return fetchJson<DecisionDossierResult>("/v1/decision/evaluate", {
+    method: "POST",
+    body: JSON.stringify(payload),
     signal,
   });
 }
