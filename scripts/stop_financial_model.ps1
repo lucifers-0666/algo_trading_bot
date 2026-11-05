@@ -1,27 +1,26 @@
 # ==============================================================================
-# Stop Local Specialist Financial Model Server
+# Stop Local Specialist Financial Model Server (Fin-R1 / Ollama)
 # ==============================================================================
 
 Write-Host "Stopping Local Financial AI Model Server..." -ForegroundColor Yellow
 
-$pidFile = "config/ai_server.pid"
-if (Test-Path $pidFile) {
-    $procId = Get-Content $pidFile
+$ollamaExe = "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
+if (Test-Path $ollamaExe) {
+    # Unload model from VRAM by setting keep_alive to 0
     try {
-        Stop-Process -Id $procId -Force -ErrorAction Stop
-        Write-Host "✓ Stopped process PID $procId" -ForegroundColor Green
-    } catch {
-        Write-Host "- Process PID $procId was not active." -ForegroundColor DarkGray
-    }
-    Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+        $payload = @{
+            model = "fin-r1:7b-q4_k_m"
+            keep_alive = 0
+        } | ConvertTo-Json
+        Invoke-RestMethod -Uri "http://127.0.0.1:11434/api/generate" -Method Post -Body $payload -ContentType "application/json" -TimeoutSec 5 -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "  [OK] Unloaded fin-r1 from GPU VRAM." -ForegroundColor Green
+    } catch {}
 }
 
-# Also terminate any running llama-server instances if present
-$llamaProcs = Get-Process -Name "llama-server" -ErrorAction SilentlyContinue
-if ($llamaProcs) {
-    $llamaProcs | Stop-Process -Force
-    Write-Host "✓ Terminated active llama-server process." -ForegroundColor Green
+# Stop Ollama processes if desired
+Get-Process -Name "ollama*" -ErrorAction SilentlyContinue | ForEach-Object {
+    Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+    Write-Host "  [OK] Stopped Ollama process PID $($_.Id)" -ForegroundColor Green
 }
 
 Write-Host "Local Financial AI Model Server stopped." -ForegroundColor Green
-

@@ -5,6 +5,28 @@ All notable changes to the Indian AI Paper Trading Platform will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-11-05
+
+### Added
+- **Specialist Financial AI Installation (Fin-R1 7B Q4_K_M GGUF):**
+  - Integrated `Fin-R1 7B` financial reasoning model checkpoint (`Mungert/Fin-R1-GGUF`) fine-tuned by SUFE-AIFLM-Lab on financial corpora.
+  - Verified 100% GPU layer offload to NVIDIA GeForce RTX 5060 Laptop GPU (CUDA 13.1, 4,535.1 MiB VRAM allocated, 53.9 tokens/sec inference speed).
+  - Built Ollama declarative manifest (`models/Modelfile.fin-r1`) and registered `fin-r1:7b-q4_k_m`.
+- **Truthful AI Telemetry & Output Cleansing:**
+  - Integrated live GPU and VRAM allocation checks via Ollama `/api/ps` in `LocalFinancialAIClient`.
+  - Removed all hard-coded confidence values (0.72) and default prices (₹1,000).
+  - Added structured financial prompt engineering with chain-of-thought `<think>` stripping and Pydantic validation.
+  - Sub-second fail-open fallback to deterministic quantitative heuristics when offline.
+- **Financial Evaluation & Security Documentation Suite:**
+  - `docs/FIN_R1_MODEL_SELECTION.md`: Comprehensive model provenance, financial domain specialization, and training history.
+  - `docs/AI_MODEL_INSTALLATION.md`: Step-by-step setup and GPU offload verification on Windows 11.
+  - `docs/AI_MODEL_STORAGE.md`: Physical storage layout, disk headroom audit, and cryptographic checksums.
+  - `docs/AI_RUNTIME_CONFIGURATION.md`: Parameter tuning rationale (context 4096, temp 0.1, max concurrency 1).
+  - `docs/FINANCIAL_LLM_EVALUATION.md`: 6-test financial reasoning evaluation suite.
+  - `docs/FINANCIAL_AI_SECURITY.md`: Strict localhost binding (`127.0.0.1:11434`), zero egress, and quantitative engine supremacy.
+  - `docs/KRONOS_TIME_SERIES_EVALUATION.md`: Comparative evaluation of `NeoQuasar/Kronos-base` time-series model.
+  - `scripts/verify_financial_ai.py` & `scripts/verify_financial_model.ps1`: Turnkey diagnostic and evaluation runner.
+
 ## [2.2.0] - 2026-11-05
 
 ### Added

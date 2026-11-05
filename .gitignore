@@ -42,6 +42,8 @@ models/saved/*
 models/registry.json
 *.joblib
 *.pkl
+*.gguf
+*.bin
 
 # Runtime states and locks
 config/*.state

@@ -116,10 +116,10 @@ export function LocalAiResearchView({ activeSymbol }: { activeSymbol: string }) 
         {aiHealth?.status !== "ONLINE" && (
           <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-center justify-between text-xs text-muted gap-2">
             <span>
-              <strong>Deterministic Fallback Active:</strong> To activate local GGUF reasoning on NVIDIA RTX 5060, start Ollama:
+              <strong>Deterministic Fallback Active:</strong> To activate local Fin-R1 reasoning on NVIDIA RTX 5060, start Ollama:
             </span>
-            <code className="px-2 py-0.5 bg-background border border-border rounded text-[11px] font-mono text-foreground">
-              ollama run deepseek-r1:7b
+            <code className="px-2 py-0.5 bg-background border border-border rounded-text-[11px] font-mono text-foreground">
+              ollama run fin-r1:7b-q4_k_m
             </code>
           </div>
         )}

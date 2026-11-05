@@ -107,3 +107,13 @@
   - Created `AutoTraderBotView.tsx` with live 3-second streaming audit tape, market hours monitor, and execution controls (22 total workstation views).
   - Added interactive Autonomous Bot Controller banner on Overview dashboard.
   - Created 1-click Windows desktop shortcut and launcher scripts (`start_platform.bat`, `start_platform.ps1`, `create_desktop_shortcut.ps1`).
+
+- [x] **Phase 14: Specialist Financial AI Model Installation & GPU Verification (Fin-R1 7B)**
+  - Installed official Ollama v0.40.14 local inference runtime with CUDA 13.1 support on Windows 11.
+  - Downloaded and verified the finance-specialized checkpoint `Fin-R1 7B Q4_K_M GGUF` (4.68 GB, SUFE-AIFLM-Lab / Qwen 2.5 7B base fine-tuned via SFT & RL on financial reasoning corpora).
+  - Built declarative Ollama manifest (`models/Modelfile.fin-r1`) and registered `fin-r1:7b-q4_k_m`.
+  - Verified 100% GPU layer offload to NVIDIA GeForce RTX 5060 Laptop GPU (4,535.1 MiB VRAM allocated, 224 MiB KV cache, 53.9 tokens/sec inference speed).
+  - Updated `LocalFinancialAIClient` in `src/trader/ai/inference_client.py` with truthful loaded-model telemetry via `/api/ps`, elimination of fake confidence constants and default prices, structured prompt schemas, and sub-second fail-open fallback.
+  - Executed 6-test comprehensive financial evaluation suite (`scripts/verify_financial_ai.py` & `scripts/verify_financial_model.ps1`), passing positive/negative disclosures, 2.2:1 R/R swing setup explainability, defective setup rejection, ICICI Bank executive dossier synthesis, and zero-egress security auditing.
+  - Created complete architectural documentation: `docs/FIN_R1_MODEL_SELECTION.md`, `docs/AI_MODEL_INSTALLATION.md`, `docs/AI_MODEL_STORAGE.md`, `docs/AI_RUNTIME_CONFIGURATION.md`, `docs/FINANCIAL_LLM_EVALUATION.md`, `docs/FINANCIAL_AI_SECURITY.md`, and `docs/KRONOS_TIME_SERIES_EVALUATION.md`.
+  - Verified test suite: **129 passed / 0 failed / 100% pass rate** in 25.89s; frontend production build cleanly passes in 805ms.
