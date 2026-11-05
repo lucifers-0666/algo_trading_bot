@@ -27,8 +27,9 @@ DEFAULT_NSE_UNIVERSE = {
 
 def get_trading_days(num_days: int, end_date: Optional[datetime] = None) -> List[datetime]:
     """Generates a list of valid NSE trading dates ending at end_date."""
+    now_ist = datetime.now(IST)
     if end_date is None:
-        end_date = datetime.now(IST)
+        end_date = now_ist
     elif end_date.tzinfo is None:
         end_date = IST.localize(end_date)
     else:
@@ -36,6 +37,11 @@ def get_trading_days(num_days: int, end_date: Optional[datetime] = None) -> List
 
     # Standardize time to market close 15:30 IST
     current = end_date.replace(hour=15, minute=30, second=0, microsecond=0)
+    # If the standardized 15:30 close time is in the future relative to now_ist,
+    # today's daily session is not yet completed. Step back to the previous day.
+    while current > now_ist:
+        current -= timedelta(days=1)
+
     days = []
 
     while len(days) < num_days:
