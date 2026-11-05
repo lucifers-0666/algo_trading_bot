@@ -73,3 +73,30 @@ class DecisionEvaluateRequest(BaseModel):
     strategy_name: Optional[str] = "baseline_swing"
 
 
+class AngelOneConfigureRequest(BaseModel):
+    api_key: str
+    client_code: str
+    pin: str
+    totp_secret: str
+    test_connection: bool = True
+
+
+class ProviderSelectRequest(BaseModel):
+    provider: str = Field(..., description="'angelone', 'dhan', 'truedata', 'csv', or 'synthetic'")
+
+
+class CostSimulateRequest(BaseModel):
+    symbol: str = "INFY"
+    buy_price: float = Field(..., gt=0.0)
+    sell_price: float = Field(..., gt=0.0)
+    quantity: int = Field(default=10, gt=0)
+    broker: str = "ANGEL_ONE"
+    trade_type: str = "DELIVERY"
+    slippage_bps: float = 5.0
+
+
+class ForecastEvaluateRequest(BaseModel):
+    symbols: Optional[List[str]] = None
+
+
+

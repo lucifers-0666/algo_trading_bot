@@ -488,3 +488,165 @@ export interface BotStatus {
   total_auto_trades: number;
   recent_logs: BotLogEntry[];
 }
+
+export interface MarketDepthLevel {
+  level: number;
+  bid_price: number;
+  bid_quantity: number;
+  bid_orders: number;
+  ask_price: number;
+  ask_quantity: number;
+  ask_orders: number;
+}
+
+export interface MarketDepth {
+  symbol: string;
+  exchange: string;
+  levels: MarketDepthLevel[];
+  best_bid: number;
+  best_ask: number;
+  spread: number;
+  spread_pct: number;
+  total_bid_quantity: number;
+  total_ask_quantity: number;
+  top5_imbalance: number;
+  timestamp: string;
+  source: string;
+  warning?: string;
+}
+
+export interface MarketDataStatus {
+  active_provider_setting: string;
+  resolved_source_type: string;
+  is_live: boolean;
+  is_configured: boolean;
+  is_connected: boolean;
+  angelone: {
+    configured: boolean;
+    connected: boolean;
+    source: string;
+    free_data_feed: boolean;
+  };
+  dhan: {
+    configured: boolean;
+    connected: boolean;
+    source: string;
+  };
+  truedata: {
+    configured: boolean;
+    connected: boolean;
+  };
+  csv_available: boolean;
+  synthetic_ready: boolean;
+  data_provenance: "REAL_TIME" | "SYNTHETIC" | "OFFLINE";
+  disclaimer: string;
+  last_update: string;
+}
+
+export interface BaselineComparison {
+  zero_return_direction: "BULLISH" | "BEARISH" | "NEUTRAL";
+  persistence_direction: "BULLISH" | "BEARISH" | "NEUTRAL";
+  trend_following_direction: "BULLISH" | "BEARISH" | "NEUTRAL";
+  model_beats_persistence_historical: boolean;
+  model_beats_zero_return_historical: boolean;
+}
+
+export interface NextSessionForecast {
+  forecast_id: string;
+  symbol: string;
+  generated_at: string;
+  target_date: string;
+  current_price: number;
+  direction: "BULLISH" | "BEARISH" | "NEUTRAL";
+  prob_up: number;
+  prob_down: number;
+  expected_return_pct: number;
+  expected_range_low: number;
+  expected_range_high: number;
+  confidence_score: number;
+  atr_volatility_pct: number;
+  historical_volatility_20d: number;
+  primary_technical_drivers: string[];
+  baselines: BaselineComparison;
+  model_type: string;
+  disclaimer: string;
+}
+
+export interface ForecastLedgerEntry {
+  forecast_id: string;
+  symbol: string;
+  generated_at: string;
+  target_date: string;
+  forecast_price: number;
+  predicted_direction: "BULLISH" | "BEARISH" | "NEUTRAL";
+  prob_up: number;
+  expected_return_pct: number;
+  expected_range_low: number;
+  expected_range_high: number;
+  status: "PENDING" | "EVALUATED" | "EXPIRED";
+  realized_close?: number | null;
+  realized_high?: number | null;
+  realized_low?: number | null;
+  realized_return_pct?: number | null;
+  direction_hit?: boolean | null;
+  range_hit?: boolean | null;
+  absolute_error_pct?: number | null;
+  evaluated_at?: string | null;
+}
+
+export interface ForecastHistoryResponse {
+  symbol?: string;
+  total_records: number;
+  evaluated_records: number;
+  historical_accuracy_pct: number;
+  entries: ForecastLedgerEntry[];
+}
+
+export interface TradeCostBreakdown {
+  broker: string;
+  trade_type: string;
+  side: "BUY" | "SELL";
+  gross_price: number;
+  effective_price: number;
+  quantity: number;
+  gross_trade_value: number;
+  slippage_inr: number;
+  market_impact_inr: number;
+  brokerage_inr: number;
+  stt_inr: number;
+  exchange_charges_inr: number;
+  sebi_charges_inr: number;
+  stamp_duty_inr: number;
+  gst_inr: number;
+  dp_charges_inr: number;
+  statutory_charges_inr: number;
+  total_statutory_taxes: number;
+  broker_charges_inr: number;
+  total_costs_inr: number;
+  net_trade_amount: number;
+}
+
+export interface RoundtripSimulation {
+  symbol: string;
+  broker: string;
+  trade_type: string;
+  quantity: number;
+  buy_price: number;
+  sell_price: number;
+  gross_pnl: number;
+  gross_pnl_pct: number;
+  total_brokerage: number;
+  total_stt: number;
+  total_exchange_txn: number;
+  total_sebi: number;
+  total_stamp_duty: number;
+  total_gst: number;
+  total_dp_charges: number;
+  total_statutory_taxes: number;
+  total_costs: number;
+  net_pnl: number;
+  net_pnl_pct: number;
+  breakeven_sell_price: number;
+  buy_costs: TradeCostBreakdown;
+  sell_costs: TradeCostBreakdown;
+}

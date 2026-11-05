@@ -18,8 +18,11 @@
 | **Virtual Starting Capital** | ₹10,000 INR |
 | **Database** | SQLite 3 (`data/storage/paper_trader.db`) with WAL Mode, ACID Transactions, & Repository Layer |
 | **Frontend Workstation** | React 19 + TypeScript + Vite across 22 dedicated quantitative views |
-| **Backend REST API** | FastAPI running on loopback (`127.0.0.1:8000`) across 38 typed endpoints + WebSockets |
-| **Automated Test Suite** | **129 passed / 0 failed / 100% pass rate** |
+| **Backend REST API** | FastAPI running on loopback (`127.0.0.1:8000`) across 54 typed endpoints + WebSockets |
+| **Automated Test Suite** | **137 passed / 0 failed / 100% pass rate** |
+| **Market Data Adapter** | Angel One SmartAPI (Free Market Data, OHLCV, 5-Depth Order Book) + Dhan + TrueData + CSV + Synthetic |
+| **Next-Session Forecasting** | Multi-factor quantitative ensemble + Volatility cones + Immutable Ledger |
+| **Broker Cost Modeling** | Multi-Broker Engine (Angel One, Zerodha, Dhan, Fyers) with DP charges & Breakeven Exit |
 
 ---
 

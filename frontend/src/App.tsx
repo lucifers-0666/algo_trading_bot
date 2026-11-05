@@ -52,29 +52,31 @@ import { RiskManagementView } from "./views/RiskManagementView";
 import { AuditLogsView } from "./views/AuditLogsView";
 import { MarketDataSettingsView } from "./views/MarketDataSettingsView";
 import { SystemSettingsView } from "./views/SystemSettingsView";
+import { NextSessionForecastView } from "./views/NextSessionForecastView";
 
 export type PageKey =
   | "Overview"
   | "Decision support"
   | "Market scanner"
-  | "Global intelligence"
-  | "Local financial AI"
-  | "Instrument master"
   | "Stock research"
-  | "Strategy lab"
-  | "Lookahead & Hyperopt"
+  | "Instrument master"
+  | "Next-session forecasting"
+  | "Local financial AI"
   | "ML research lab"
-  | "Backtests"
-  | "Strategy comparison"
   | "Model registry"
+  | "Global intelligence"
+  | "Strategy lab"
+  | "Backtests"
+  | "Lookahead & Hyperopt"
+  | "Strategy comparison"
   | "Trading terminal"
   | "Auto-trading bot"
   | "Portfolio & holdings"
   | "Order history"
   | "Performance analytics"
+  | "Market data & feeds"
   | "Risk management"
   | "Audit logs"
-  | "Market data & feeds"
   | "System settings";
 
 interface NavGroup {
@@ -84,30 +86,41 @@ interface NavGroup {
 
 const navigation: NavGroup[] = [
   {
-    group: "WORKSPACE",
+    group: "1. OVERVIEW",
     items: [
       { label: "Overview", icon: LayoutDashboard },
       { label: "Decision support", icon: ShieldCheck },
-      { label: "Market scanner", icon: Search },
-      { label: "Global intelligence", icon: Globe },
+    ],
+  },
+  {
+    group: "2. MARKETS",
+    items: [
       { label: "Stock research", icon: CandlestickChart },
+      { label: "Market scanner", icon: Search },
       { label: "Instrument master", icon: Database },
     ],
   },
   {
-    group: "QUANT RESEARCH & AI",
+    group: "3. RESEARCH & AI",
     items: [
+      { label: "Next-session forecasting", icon: TrendingUp },
       { label: "Local financial AI", icon: BrainCircuit },
-      { label: "Strategy lab", icon: Sliders },
-      { label: "Lookahead & Hyperopt", icon: CheckCircle2 },
       { label: "ML research lab", icon: Cpu },
-      { label: "Backtests", icon: FlaskConical },
-      { label: "Strategy comparison", icon: Scale },
       { label: "Model registry", icon: Layers },
+      { label: "Global intelligence", icon: Globe },
     ],
   },
   {
-    group: "SIMULATED PAPER TRADING",
+    group: "4. STRATEGIES & BACKTESTS",
+    items: [
+      { label: "Strategy lab", icon: Sliders },
+      { label: "Backtests", icon: FlaskConical },
+      { label: "Lookahead & Hyperopt", icon: CheckCircle2 },
+      { label: "Strategy comparison", icon: Scale },
+    ],
+  },
+  {
+    group: "5. PAPER TRADING",
     items: [
       { label: "Trading terminal", icon: ShoppingCart },
       { label: "Auto-trading bot", icon: Bot },
@@ -117,16 +130,11 @@ const navigation: NavGroup[] = [
     ],
   },
   {
-    group: "RISK & COMPLIANCE",
-    items: [
-      { label: "Risk management", icon: ShieldCheck },
-      { label: "Audit logs", icon: FileText },
-    ],
-  },
-  {
-    group: "SYSTEM & DATA",
+    group: "6. SETTINGS & SYSTEM",
     items: [
       { label: "Market data & feeds", icon: Database },
+      { label: "Risk management", icon: ShieldCheck },
+      { label: "Audit logs", icon: FileText },
       { label: "System settings", icon: HardDrive },
     ],
   },
@@ -159,6 +167,10 @@ export default function App() {
     setSidebarOpen(false);
   };
 
+  const currentGroup = useMemo(() => {
+    return navigation.find((grp) => grp.items.some((item) => item.label === activePage));
+  }, [activePage]);
+
   const subtitle = useMemo(() => {
     const titles: Record<PageKey, string> = {
       "Overview": "A unified executive telemetry of your research and simulated portfolio.",
@@ -168,6 +180,7 @@ export default function App() {
       "Local financial AI": "Local quantized reasoning models (Fin-R1 / FinGPT) running on RTX 5060 GPU with heuristic fallback.",
       "Instrument master": "Authoritative instrument master records, lot sizing, and tick specifications.",
       "Stock research": "High-density technical analysis charts, indicators, and market regime classification.",
+      "Next-session forecasting": "Ensemble econometric & statistical model forecasting next-session direction, returns %, and volatility range cones.",
       "Strategy lab": "Configure quantitative trading rules and review look-ahead bias prevention.",
       "Lookahead & Hyperopt": "Strategy audit verifying 0% future data leakage and systematic Sortino/Calmar parameter optimization.",
       "ML research lab": "Train chronological machine-learning models with purge gaps and zero label leakage.",
@@ -326,6 +339,35 @@ export default function App() {
             </div>
           </section>
 
+          {/* 6-Section Sub-Navigation Pill Bar */}
+          {currentGroup && currentGroup.items.length > 1 && (
+            <div className="flex items-center gap-2 p-1.5 bg-slate-900/60 rounded-xl border border-slate-800 overflow-x-auto mb-4">
+              <span className="text-[11px] font-bold text-slate-400 px-2 shrink-0 uppercase tracking-wider">
+                {currentGroup.group.split(". ")[1] || currentGroup.group}:
+              </span>
+              <div className="flex items-center gap-1.5 flex-nowrap">
+                {currentGroup.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activePage === item.label;
+                  return (
+                    <button
+                      key={item.label}
+                      onClick={() => handleNavigate(item.label)}
+                      className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+                        isActive
+                          ? "bg-indigo-600 text-white shadow-sm"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/80"
+                      }`}
+                    >
+                      <Icon size={13} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Render Active View */}
           <div className="active-view-wrapper">
             {activePage === "Overview" && <OverviewView onNavigate={handleNavigate} />}
@@ -338,6 +380,9 @@ export default function App() {
             {activePage === "Market scanner" && <MarketScannerView onNavigate={handleNavigate} />}
             {activePage === "Global intelligence" && (
               <FinancialIntelligenceView onSelectSymbol={(sym) => handleNavigate("Stock research", sym)} />
+            )}
+            {activePage === "Next-session forecasting" && (
+              <NextSessionForecastView onNavigateToAi={(sym) => handleNavigate("Local financial AI", sym)} />
             )}
             {activePage === "Local financial AI" && <LocalAiResearchView activeSymbol={activeSymbol} />}
             {activePage === "Instrument master" && <InstrumentMasterView onNavigate={handleNavigate} />}

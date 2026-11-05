@@ -23,6 +23,7 @@ class DataSource(str, Enum):
     CSV = "csv"
     TRUEDATA = "truedata"
     DHAN = "dhan"
+    ANGELONE = "angelone"
 
 
 class Timeframe(str, Enum):
@@ -126,6 +127,71 @@ class Quote(BaseModel):
     @classmethod
     def normalize_symbol(cls, v: str) -> str:
         return v.strip().upper()
+
+
+class MarketDepthLevel(BaseModel):
+    """Single level of 5-depth order book."""
+    level: int = Field(..., ge=1, le=5)
+    bid_price: float = Field(default=0.0, ge=0.0)
+    bid_quantity: int = Field(default=0, ge=0)
+    bid_orders: int = Field(default=0, ge=0)
+    ask_price: float = Field(default=0.0, ge=0.0)
+    ask_quantity: int = Field(default=0, ge=0)
+    ask_orders: int = Field(default=0, ge=0)
+
+
+class MarketDepth(BaseModel):
+    """Snapshot of top-5 market depth (order book) with calculated microstructure metrics."""
+    symbol: str
+    exchange: str = "NSE"
+    levels: List[MarketDepthLevel] = Field(default_factory=list)
+    best_bid: float = 0.0
+    best_ask: float = 0.0
+    spread: float = 0.0
+    spread_pct: float = 0.0
+    total_bid_quantity: int = 0
+    total_ask_quantity: int = 0
+    top5_imbalance: float = 0.0  # (bid_qty - ask_qty) / (bid_qty + ask_qty)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(IST))
+    source: DataSource = DataSource.REAL_TIME
+
+    @classmethod
+    def compute(
+        cls,
+        symbol: str,
+        levels: List[MarketDepthLevel],
+        exchange: str = "NSE",
+        source: DataSource = DataSource.REAL_TIME,
+        timestamp: Optional[datetime] = None,
+    ) -> "MarketDepth":
+        best_bid = levels[0].bid_price if levels else 0.0
+        best_ask = levels[0].ask_price if levels else 0.0
+        spread = round(max(0.0, best_ask - best_bid), 2) if (best_ask > 0 and best_bid > 0) else 0.0
+        spread_pct = round((spread / best_ask * 100.0), 3) if best_ask > 0 else 0.0
+
+        total_bids = sum(l.bid_quantity for l in levels)
+        total_asks = sum(l.ask_quantity for l in levels)
+        denom = total_bids + total_asks
+        imbalance = round((total_bids - total_asks) / denom, 3) if denom > 0 else 0.0
+
+        return cls(
+            symbol=symbol.strip().upper(),
+            exchange=exchange,
+            levels=levels,
+            best_bid=best_bid,
+            best_ask=best_ask,
+            spread=spread,
+            spread_pct=spread_pct,
+            total_bid_quantity=total_bids,
+            total_ask_quantity=total_asks,
+            top5_imbalance=imbalance,
+            timestamp=timestamp or datetime.now(IST),
+            source=source,
+        )
+
+    @classmethod
+    def create(cls, *args, **kwargs) -> "MarketDepth":
+        return cls.compute(*args, **kwargs)
 
 
 class Instrument(BaseModel):

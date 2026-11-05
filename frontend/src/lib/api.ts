@@ -31,6 +31,11 @@ import type {
   HyperoptLeaderboardResult,
   DecisionDossierResult,
   BotStatus,
+  MarketDepth,
+  MarketDataStatus,
+  NextSessionForecast,
+  ForecastHistoryResponse,
+  RoundtripSimulation,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -352,6 +357,99 @@ export function configBot(
   signal?: AbortSignal
 ): Promise<BotStatus> {
   return fetchJson<BotStatus>("/v1/bot/config", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+// 14. Market Depth & Feeds
+export function getMarketDepth(symbol: string, signal?: AbortSignal): Promise<MarketDepth> {
+  return fetchJson<MarketDepth>(`/v1/market-data/depth/${encodeURIComponent(symbol)}`, {
+    method: "GET",
+    signal,
+  });
+}
+
+export function getMarketDataStatus(signal?: AbortSignal): Promise<MarketDataStatus> {
+  return fetchJson<MarketDataStatus>("/v1/market-data/status", {
+    method: "GET",
+    signal,
+  });
+}
+
+export function configureMarketData(
+  payload: { api_key: string; client_code: string; pin: string; totp_secret: string; test_connection?: boolean },
+  signal?: AbortSignal
+): Promise<{ status: string; message: string; client_code: string; active_provider: string }> {
+  return fetchJson("/v1/market-data/configure", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+export function selectMarketDataProvider(
+  provider: string,
+  signal?: AbortSignal
+): Promise<{ status: string; active_provider: string; resolved_source: string }> {
+  return fetchJson("/v1/market-data/select-provider", {
+    method: "POST",
+    body: JSON.stringify({ provider }),
+    signal,
+  });
+}
+
+// 15. Next-Session Quantitative Forecasting
+export function getNextSessionForecast(
+  symbol: string = "NIFTY",
+  signal?: AbortSignal
+): Promise<NextSessionForecast> {
+  return fetchJson<NextSessionForecast>(`/v1/forecast/next-session?symbol=${encodeURIComponent(symbol)}`, {
+    method: "GET",
+    signal,
+  });
+}
+
+export function getForecastHistory(
+  symbol?: string,
+  limit: number = 50,
+  signal?: AbortSignal
+): Promise<ForecastHistoryResponse> {
+  const query = new URLSearchParams();
+  if (symbol) query.set("symbol", symbol);
+  query.set("limit", String(limit));
+  return fetchJson<ForecastHistoryResponse>(`/v1/forecast/history?${query.toString()}`, {
+    method: "GET",
+    signal,
+  });
+}
+
+export function evaluateForecastLedger(
+  symbols?: string[],
+  signal?: AbortSignal
+): Promise<any> {
+  return fetchJson("/v1/forecast/evaluate", {
+    method: "POST",
+    body: JSON.stringify({ symbols }),
+    signal,
+  });
+}
+
+// 16. Multi-Broker Transaction Costs & DP Charges Simulator
+export function simulateTradeCosts(
+  payload: {
+    symbol: string;
+    buy_price: number;
+    sell_price: number;
+    quantity: number;
+    broker?: string;
+    trade_type?: string;
+    slippage_bps?: number;
+  },
+  signal?: AbortSignal
+): Promise<RoundtripSimulation> {
+  return fetchJson<RoundtripSimulation>("/v1/costs/simulate", {
     method: "POST",
     body: JSON.stringify(payload),
     signal,
