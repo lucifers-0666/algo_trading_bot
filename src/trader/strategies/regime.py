@@ -117,3 +117,4 @@ def detect_market_regime(df_ind: pd.DataFrame) -> RegimeAssessment:
         summary="SIDEWAYS CONSOLIDATION: Market oscillating in trading range. Position size reduction advised.",
         reasons=["Moving averages converging; no dominant directional trend."],
     )
+

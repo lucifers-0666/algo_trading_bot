@@ -88,3 +88,4 @@ def test_scanner_snapshot_cache():
     assert len(gainers) > 0
     engine.clear_cache()
     assert len(engine._metrics_cache) == 0
+

@@ -125,3 +125,4 @@ class NSETradingCalendar:
 
 # Global default instance
 default_nse_calendar = NSETradingCalendar()
+

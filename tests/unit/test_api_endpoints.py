@@ -128,3 +128,4 @@ def test_kill_switch_api_endpoint():
     res2 = client.post("/api/v1/risk/kill-switch", json={"action": "disengage", "reason": "Restoring API"})
     assert res2.status_code == 200
     assert res2.json()["active"] is False
+

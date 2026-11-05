@@ -134,3 +134,4 @@ class MomentumStrategy:
             )
 
         return None
+

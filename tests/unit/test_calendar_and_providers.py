@@ -59,3 +59,4 @@ def test_truedata_adapter_provenance_labels():
     assert "RELIANCE" in adapter._subscribed_symbols
     adapter.unsubscribe(["TCS"])
     assert "TCS" not in adapter._subscribed_symbols
+

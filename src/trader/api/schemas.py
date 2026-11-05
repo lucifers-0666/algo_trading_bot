@@ -44,3 +44,4 @@ class ModelTrainRequest(BaseModel):
     symbol: str = "INFY"
     model_type: str = "random_forest"
     horizon_bars: int = 5
+
