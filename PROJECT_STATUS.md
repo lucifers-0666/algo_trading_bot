@@ -18,8 +18,8 @@
 | **Virtual Starting Capital** | ₹10,000 INR |
 | **Database** | SQLite 3 (`data/storage/paper_trader.db`) with WAL Mode, ACID Transactions, & Repository Layer |
 | **Frontend Workstation** | React 19 + TypeScript + Vite across 22 dedicated quantitative views |
-| **Backend REST API** | FastAPI running on loopback (`127.0.0.1:8000`) across 36 typed endpoints |
-| **Automated Test Suite** | **122 passed / 0 failed / 81% code coverage** |
+| **Backend REST API** | FastAPI running on loopback (`127.0.0.1:8000`) across 38 typed endpoints + WebSockets |
+| **Automated Test Suite** | **129 passed / 0 failed / 100% pass rate** |
 
 ---
 

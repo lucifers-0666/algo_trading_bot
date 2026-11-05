@@ -7,6 +7,7 @@ STRICTLY BOUND TO LOCALHOST (127.0.0.1) AND STRICTLY VIRTUAL PAPER TRADING.
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+import asyncio
 import json
 import os
 import pandas as pd
@@ -14,7 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Query, Body
+from fastapi import FastAPI, HTTPException, Query, Body, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from trader.domain.models import (
@@ -56,6 +57,7 @@ from trader.providers.truedata_adapter import TrueDataAdapter
 from trader.scanner.ranking import MarketScannerEngine
 from trader.universe.instruments import UniverseManager
 from trader.features.technical import candles_to_dataframe, compute_all_indicators
+from trader.data.resampler import parse_timeframe
 from trader.strategies.baseline import BaselineSwingStrategy
 from trader.strategies.momentum import MomentumStrategy
 from trader.strategies.breakout import DonchianBreakoutStrategy
@@ -234,17 +236,29 @@ def market_session() -> dict[str, Any]:
 
 @app.get("/api/v1/data/health", tags=["market"])
 def data_health() -> dict[str, Any]:
-    """Monitors market data latency, source provenance, and freshness guards."""
+    """Monitors market data latency, source provenance, and freshness guards with strict fail-closed safety."""
     provider = get_market_provider()
-    last_tick_time = getattr(provider, "_last_update", datetime.now(IST))
-    freshness = evaluate_feed_freshness(last_tick_time)
+    last_tick_time = getattr(provider, "_last_update", None)
+    is_conf = getattr(provider, "is_configured", True)
+    is_conn = getattr(provider, "_is_connected", False)
+    source_label = provider.source_type.value.upper() if hasattr(provider, "source_type") else "UNAVAILABLE"
+
+    freshness = evaluate_feed_freshness(
+        last_update=last_tick_time,
+        source_type=source_label,
+        is_configured=is_conf,
+        is_connected=is_conn,
+    )
 
     return {
-        "data_source_label": provider.source_type.value.upper(),
+        "data_source_label": source_label,
         "feed_status": freshness.status.value,
         "is_actionable": freshness.is_actionable,
         "latency_seconds": round(freshness.latency_seconds, 2),
         "message": freshness.message,
+        "is_configured": is_conf,
+        "is_connected": is_conn,
+        "last_update_ist": freshness.last_update_ist.strftime("%Y-%m-%d %H:%M:%S IST") if freshness.last_update_ist else None,
     }
 
 
@@ -335,19 +349,99 @@ def get_instrument_details(symbol: str) -> Dict[str, Any]:
     }
 
 
+@app.websocket("/api/v1/ws/quotes/{symbol}")
+async def websocket_symbol_quotes(websocket: WebSocket, symbol: str):
+    """Streams live quotes and tick aggregations for a single equity symbol."""
+    await websocket.accept()
+    sym = symbol.strip().upper()
+    provider = get_market_provider()
+    try:
+        while True:
+            try:
+                quote = provider.get_latest_quote(sym)
+                source_label = quote.source.value if hasattr(quote, "source") else "UNKNOWN"
+                await websocket.send_json({
+                    "type": "quote",
+                    "symbol": sym,
+                    "ltp": quote.ltp,
+                    "bid": quote.bid,
+                    "ask": quote.ask,
+                    "volume": quote.volume,
+                    "timestamp": quote.timestamp.isoformat(),
+                    "source": source_label,
+                })
+            except Exception as e:
+                await websocket.send_json({
+                    "type": "error",
+                    "symbol": sym,
+                    "message": str(e),
+                })
+            await asyncio.sleep(1.0)
+    except WebSocketDisconnect:
+        pass
+
+
+@app.websocket("/api/v1/ws/live")
+async def websocket_live_stream(websocket: WebSocket):
+    """Streams active feed health, portfolio summary, and market pulse every second."""
+    await websocket.accept()
+    try:
+        while True:
+            provider = get_market_provider()
+            last_tick_time = getattr(provider, "_last_update", None)
+            is_conf = getattr(provider, "is_configured", True)
+            is_conn = getattr(provider, "_is_connected", False)
+            source_label = provider.source_type.value.upper() if hasattr(provider, "source_type") else "UNAVAILABLE"
+            freshness = evaluate_feed_freshness(
+                last_update=last_tick_time,
+                source_type=source_label,
+                is_configured=is_conf,
+                is_connected=is_conn,
+            )
+            state = accountant.get_portfolio_state()
+            await websocket.send_json({
+                "type": "heartbeat",
+                "feed_status": freshness.status.value,
+                "is_actionable": freshness.is_actionable,
+                "source": source_label,
+                "latency_seconds": round(freshness.latency_seconds, 2),
+                "portfolio_equity": state.total_equity,
+                "cash_balance": state.cash_balance,
+                "open_positions": len(accountant.positions),
+                "timestamp": datetime.now(IST).isoformat(),
+            })
+            await asyncio.sleep(1.0)
+    except WebSocketDisconnect:
+        pass
+
+
 @app.get("/api/v1/instruments/{symbol}/candles", tags=["instruments"])
 def get_instrument_candles(
     symbol: str,
-    timeframe: str = Query("1d", description="Timeframe e.g. 1d"),
+    timeframe: str = Query("1d", description="Timeframe e.g. 1m, 3m, 5m, 15m, 30m, 1h, 1d, 1w"),
     limit: int = Query(100, ge=10, le=500),
 ) -> Dict[str, Any]:
     """Returns historical candles decorated with technical indicators and regime assessment."""
     sym = symbol.strip().upper()
+    try:
+        tf = parse_timeframe(timeframe)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     provider = get_market_provider()
-    candles = provider.get_historical_candles(sym)
+    try:
+        candles = provider.get_historical_candles(sym, timeframe=tf)
+    except ValueError as e:
+        # If active provider lacks intraday, provide high-resolution synthetic intraday series for research
+        if tf in (Timeframe.MINUTE_1, Timeframe.MINUTE_3, Timeframe.MINUTE_5, Timeframe.MINUTE_15, Timeframe.MINUTE_30, Timeframe.HOUR_1):
+            candles = synth_provider.get_historical_candles(sym, timeframe=tf)
+        else:
+            raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Provider failed to fetch candles: {str(e)}")
 
     if not candles:
-        raise HTTPException(status_code=404, detail=f"No historical candles available for {sym}.")
+        raise HTTPException(status_code=404, detail=f"No candles available for {sym} at timeframe {tf.value}.")
 
     candles = candles[-limit:]
     df = candles_to_dataframe(candles)
@@ -355,10 +449,13 @@ def get_instrument_candles(
     regime = detect_market_regime(df_ind)
 
     # Format candle list with indicators
+    is_intraday = tf in (Timeframe.MINUTE_1, Timeframe.MINUTE_3, Timeframe.MINUTE_5, Timeframe.MINUTE_15, Timeframe.MINUTE_30, Timeframe.HOUR_1)
+    date_format = "%Y-%m-%d %H:%M" if is_intraday else "%Y-%m-%d"
+
     candle_records = []
     for _, row in df_ind.iterrows():
         candle_records.append({
-            "timestamp": row["timestamp"].strftime("%Y-%m-%d"),
+            "timestamp": row["timestamp"].strftime(date_format),
             "open": float(row["open"]),
             "high": float(row["high"]),
             "low": float(row["low"]),
@@ -373,6 +470,8 @@ def get_instrument_candles(
 
     return {
         "symbol": sym,
+        "timeframe": tf.value,
+        "source": candles[0].source.value if candles else "UNKNOWN",
         "count": len(candle_records),
         "regime": regime.model_dump(),
         "candles": candle_records,

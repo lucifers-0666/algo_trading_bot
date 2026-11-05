@@ -100,6 +100,8 @@ export interface RegimeAssessment {
 
 export interface InstrumentCandlesResponse {
   symbol: string;
+  timeframe?: string;
+  source?: string;
   count: number;
   regime: RegimeAssessment;
   candles: CandleRecord[];

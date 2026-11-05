@@ -257,7 +257,10 @@ class AutonomousPaperTradingDaemon:
         }
 
     def _evaluate_open_positions(self) -> List[Dict[str, Any]]:
-        """Evaluates active holdings and automatically closes positions hitting stop-loss or profit targets."""
+        """Evaluates active holdings and automatically closes positions hitting stop-loss or profit targets.
+        Strictly requires fresh actionable quotes during active market hours; refuses to trigger stop losses
+        on unverified historical candle closes.
+        """
         closed = []
         positions = list(self.broker.accountant.positions.values())
         provider = self.scanner_engine.provider
@@ -266,13 +269,28 @@ class AutonomousPaperTradingDaemon:
             sym = pos.symbol.upper()
             try:
                 quote = provider.get_latest_quote(sym)
-                current_price = quote.ltp
-            except Exception:
-                candles = provider.get_historical_candles(sym)
-                if candles:
-                    current_price = candles[-1].close
-                else:
+                source_label = quote.source.value if hasattr(quote, "source") else "UNKNOWN"
+                freshness = evaluate_feed_freshness(
+                    last_update=quote.timestamp,
+                    source_type=source_label,
+                    is_configured=getattr(provider, "is_configured", True),
+                    is_connected=getattr(provider, "_is_connected", True),
+                )
+                if not freshness.is_actionable:
+                    self._log_event(
+                        "STALE_FEED_GUARD",
+                        sym,
+                        f"Skipping stop-loss evaluation for {sym}: Data feed {freshness.status.value} is not actionable ({freshness.message}). Forbidding exit on stale data.",
+                    )
                     continue
+                current_price = quote.ltp
+            except Exception as e:
+                self._log_event(
+                    "DATA_ERROR_GUARD",
+                    sym,
+                    f"Live quote retrieval failed for {sym}: {e}. Halting position evaluation; refusing to execute stop-loss on historical fallback.",
+                )
+                continue
 
             # Update unrealized P&L
             self.broker.accountant.update_unrealized_pnl(sym, current_price)

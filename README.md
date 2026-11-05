@@ -4,7 +4,7 @@
 [![React 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135-green.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests: 122 Passing](https://img.shields.io/badge/tests-122%20passing-brightgreen.svg)]()
+[![Tests: 129 Passing](https://img.shields.io/badge/tests-129%20passing-brightgreen.svg)]()
 [![Coverage: 81%](https://img.shields.io/badge/coverage-81%25-brightgreen.svg)]()
 [![Hardware: NVIDIA RTX 5060](https://img.shields.io/badge/GPU-RTX%205060%20(8GB)-76B900.svg)]()
 

@@ -10,6 +10,7 @@ import pytz
 
 from trader.domain.models import Candle, DataSource, Timeframe, IST
 from trader.data.calendar import default_nse_calendar
+from trader.data.resampler import resample_candles
 
 DEFAULT_NSE_UNIVERSE = {
     "RELIANCE": {"initial_price": 2850.0, "daily_vol": 0.016, "avg_volume": 4500000},
@@ -74,6 +75,67 @@ def generate_synthetic_candles(
     p0 = initial_price or meta["initial_price"]
     sigma = daily_vol or meta["daily_vol"]
     base_vol = avg_volume or meta["avg_volume"]
+
+    # If weekly timeframe requested, generate daily and resample to weekly
+    if interval == Timeframe.WEEKLY:
+        daily_candles = generate_synthetic_candles(
+            symbol=symbol,
+            num_days=max(num_days * 5, 150),
+            seed=seed,
+            initial_price=initial_price,
+            daily_vol=daily_vol,
+            avg_volume=avg_volume,
+            trend_bias=trend_bias,
+            interval=Timeframe.DAILY,
+        )
+        return resample_candles(daily_candles, Timeframe.WEEKLY)
+
+    # If intraday timeframe requested, generate 1-minute session bars and resample
+    if interval in (Timeframe.MINUTE_1, Timeframe.MINUTE_3, Timeframe.MINUTE_5, Timeframe.MINUTE_15, Timeframe.MINUTE_30, Timeframe.HOUR_1):
+        recent_days = get_trading_days(min(num_days, 5))
+        minute_candles: List[Candle] = []
+        cur_p = p0
+        minute_vol = sigma / 19.36
+        per_minute_base_vol = max(100.0, base_vol / 375.0)
+
+        for day_dt in recent_days:
+            # 09:15 to 15:30 IST is 375 minutes
+            session_start = day_dt.replace(hour=9, minute=15, second=0, microsecond=0)
+            # Overnight jump between days
+            cur_p = round(cur_p * (1.0 + float(rng.normal(0, sigma * 0.3))), 2)
+            cur_p = max(1.0, cur_p)
+
+            for m in range(375):
+                bar_time = session_start + timedelta(minutes=m)
+                ret = float(rng.normal(loc=0.0, scale=minute_vol))
+                o = cur_p
+                c = round(max(0.5, o * (1.0 + ret)), 2)
+                h = round(max(o, c) * (1.0 + abs(float(rng.normal(0, minute_vol * 0.5)))), 2)
+                l = round(min(o, c) * (1.0 - abs(float(rng.normal(0, minute_vol * 0.5)))), 2)
+                l = max(0.2, l)
+                h = max(h, o, c)
+                l = min(l, o, c)
+                v = float(round(per_minute_base_vol * float(rng.lognormal(0.0, 0.4))))
+                minute_candles.append(
+                    Candle(
+                        exchange="NSE",
+                        symbol=symbol.upper(),
+                        timestamp=bar_time,
+                        interval=Timeframe.MINUTE_1,
+                        open=o,
+                        high=h,
+                        low=l,
+                        close=c,
+                        volume=v,
+                        turnover=round(c * v, 2),
+                        source=DataSource.SYNTHETIC,
+                    )
+                )
+                cur_p = c
+
+        if interval == Timeframe.MINUTE_1:
+            return minute_candles
+        return resample_candles(minute_candles, interval)
 
     dates = get_trading_days(num_days)
     candles: List[Candle] = []

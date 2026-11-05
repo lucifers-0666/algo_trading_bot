@@ -5,6 +5,33 @@ All notable changes to the Indian AI Paper Trading Platform will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-11-05
+
+### Added
+- **Multi-Timeframe Candle Resampling Engine (`trader/data/resampler.py`):**
+  - Resamples raw minute and daily OHLCV bars into `1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `1d`, `1w` timeframes.
+  - Aligned strictly to Indian market open at 09:15:00 IST.
+  - Guardrail preventing invalid downsampling of daily candles to intraday.
+- **FastAPI Real-Time WebSocket Streaming:**
+  - `/api/v1/ws/quotes/{symbol}`: Streams live quote packets and tick updates directly to subscribers.
+  - `/api/v1/ws/live`: Streams portfolio equity, feed health, and open positions heartbeats every second.
+- **Stock Research Live Tick Aggregation:**
+  - Upgraded `StockResearchView.tsx` with dynamic timeframe selector (`1m` to `1w`) and live WebSocket connection.
+  - Ticks stream in-place into the active candlestick without full page reloading.
+  - Real-time connection beacon, data provenance tag, and last exchange tick timestamp.
+- **Stop-Loss Execution Hardening in Paper Daemon:**
+  - Resolved false stop-loss exits during active market hours by eliminating historical candle fallback.
+  - Enforces actionable quote freshness before evaluating stops or profit targets; pauses safely when feed is stale.
+- **Local AI Fallback Transparency:**
+  - Standardized `LOCAL_AI_BASE_URL` defaulting to `http://127.0.0.1:11434/v1`.
+  - Transparently indicates `STANDBY_HEURISTIC` mode when local model server is offline without fabricating AI metrics.
+
+### Changed
+- Expanded `Timeframe` enum in canonical domain models to include `3m`, `30m`, and `1w`.
+- Replaced manufactured synthetic bid/ask spreads with clean `None` values.
+- Expanded test suite to **129 passing tests** (100% pass rate).
+- Updated comprehensive technical documentation suite across 14 documents in `docs/`.
+
 ## [0.1.0] - 2026-11-04
 
 ### Added

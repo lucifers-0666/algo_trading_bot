@@ -11,6 +11,7 @@ from trader.domain.models import Candle, Quote, Timeframe, DataSource, IST
 from trader.providers.base import MarketDataProvider
 from trader.data.normalizer import normalize_row_to_candle
 from trader.data.validation import validate_candle_sequence
+from trader.data.resampler import resample_candles
 
 
 class CSVDataProvider(MarketDataProvider):
@@ -89,6 +90,21 @@ class CSVDataProvider(MarketDataProvider):
             candles = [c for c in candles if c.timestamp >= start_date]
         if end_date:
             candles = [c for c in candles if c.timestamp <= end_date]
+
+        if not candles:
+            return []
+
+        tf = timeframe if isinstance(timeframe, Timeframe) else Timeframe(timeframe)
+        if tf == Timeframe.WEEKLY:
+            return resample_candles(candles, Timeframe.WEEKLY)
+        elif tf != Timeframe.DAILY:
+            # If base CSV data is daily, refuse to falsely label daily bars as intraday
+            if candles[0].interval == Timeframe.DAILY:
+                raise ValueError(
+                    f"CSV archive for {sym} is daily (1d) resolution. Intraday timeframe '{tf.value}' cannot be derived from daily Bhavcopy."
+                )
+            return resample_candles(candles, tf)
+
         return candles
 
     def get_latest_quote(self, symbol: str) -> Quote:

@@ -6,6 +6,7 @@ when local server is offline or in standby mode.
 
 import json
 import logging
+import os
 import time
 from datetime import datetime
 from typing import Dict, Any, Optional, List
@@ -25,7 +26,7 @@ from trader.intelligence.classifier import EventClassifier
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LOCAL_ENDPOINT = "http://127.0.0.1:8080/v1"
+DEFAULT_LOCAL_ENDPOINT = os.environ.get("LOCAL_AI_BASE_URL", "http://127.0.0.1:11434/v1")
 
 
 class LocalFinancialAIClient:
@@ -41,7 +42,7 @@ class LocalFinancialAIClient:
         classifier: Optional[EventClassifier] = None,
     ):
         self.base_url = base_url.rstrip("/")
-        self.model_name = model_name
+        self.model_name = os.environ.get("LOCAL_AI_MODEL", model_name)
         self.timeout = timeout
         self.classifier = classifier or EventClassifier()
 
@@ -49,13 +50,15 @@ class LocalFinancialAIClient:
         """Probes the local model server to verify connectivity and latency."""
         start_t = time.perf_counter()
         try:
-            resp = requests.get(f"{self.base_url}/models", timeout=self.timeout)
+            # Check OpenAI-compatible endpoint or native Ollama tags
+            url = f"{self.base_url}/models" if "/v1" in self.base_url else f"{self.base_url}/api/tags"
+            resp = requests.get(url, timeout=self.timeout)
             elapsed_ms = round((time.perf_counter() - start_t) * 1000, 2)
             if resp.status_code == 200:
                 return AIHealthResponse(
                     status="ONLINE",
                     model_name=self.model_name,
-                    provider="Local GGUF (llama.cpp / Ollama)",
+                    provider="Local GGUF (Ollama / llama.cpp)",
                     gpu_acceleration=True,
                     endpoint=self.base_url,
                     latency_ms=elapsed_ms,
@@ -71,7 +74,7 @@ class LocalFinancialAIClient:
             gpu_acceleration=False,
             endpoint=self.base_url,
             latency_ms=0.0,
-            details="Local LLM server offline; running high-speed deterministic quantitative reasoning engine.",
+            details="Local LLM runtime offline (Ollama / llama.cpp not running); operating in deterministic heuristic fallback mode.",
         )
 
     def analyze_news(self, req: NewsAnalysisRequest) -> NewsAnalysisResponse:
