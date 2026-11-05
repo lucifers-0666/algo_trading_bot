@@ -9,9 +9,7 @@ from pydantic import BaseModel, Field
 import pytz
 
 from trader.domain.models import IST
-
-NSE_MARKET_OPEN = time(9, 15)
-NSE_MARKET_CLOSE = time(15, 30)
+from trader.data.calendar import default_nse_calendar, NSE_MARKET_OPEN, NSE_MARKET_CLOSE
 
 
 class FeedStatus(str, Enum):
@@ -31,20 +29,8 @@ class FreshnessReport(BaseModel):
 
 
 def is_nse_market_open(now_dt: Optional[datetime] = None) -> bool:
-    """Returns True if given IST timestamp falls within Monday-Friday 09:15-15:30 IST."""
-    if now_dt is None:
-        now_dt = datetime.now(IST)
-    elif now_dt.tzinfo is None:
-        now_dt = IST.localize(now_dt)
-    else:
-        now_dt = now_dt.astimezone(IST)
-
-    # Monday=0, Sunday=6
-    if now_dt.weekday() >= 5:
-        return False
-
-    current_time = now_dt.time()
-    return NSE_MARKET_OPEN <= current_time <= NSE_MARKET_CLOSE
+    """Returns True if given IST timestamp falls within Monday-Friday 09:15-15:30 IST and is not an exchange holiday."""
+    return default_nse_calendar.is_market_open(now_dt)
 
 
 def evaluate_feed_freshness(

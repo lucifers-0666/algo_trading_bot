@@ -1,5 +1,6 @@
 """Forward-Return Labeling and Purging Engine.
 Computes future horizon returns and enforces purge/embargo gaps to prevent label leakage.
+Supports single chronological train/test splits and rolling/expanding walk-forward cross-validation.
 """
 
 from typing import Tuple, List, Optional
@@ -10,7 +11,7 @@ import pandas as pd
 def generate_forward_labels(
     df: pd.DataFrame,
     horizon_bars: int = 5,
-    return_threshold: float = 0.015, # 1.5% forward gain
+    return_threshold: float = 0.015,  # 1.5% forward gain
 ) -> pd.DataFrame:
     """Computes future return labels.
     CRITICAL: The resulting 'label' column is strictly FUTURE information.
@@ -57,3 +58,44 @@ def chronological_train_test_split(
 
     return train_df, test_df
 
+
+def generate_walk_forward_splits(
+    df: pd.DataFrame,
+    n_splits: int = 3,
+    train_bars: int = 50,
+    test_bars: int = 15,
+    purge_gap_bars: int = 5,
+    expanding: bool = True,
+) -> List[Tuple[pd.DataFrame, pd.DataFrame]]:
+    """Generates strictly chronological walk-forward train/test windows with purge gaps."""
+    clean_df = df.dropna(subset=["label"]).sort_values("timestamp").reset_index(drop=True)
+    n = len(clean_df)
+    splits = []
+
+    step = (n - train_bars - purge_gap_bars) // n_splits
+    if step <= 0:
+        train_df, test_df = chronological_train_test_split(clean_df, train_ratio=0.7, purge_gap_bars=purge_gap_bars)
+        return [(train_df, test_df)]
+
+    for i in range(n_splits):
+        if expanding:
+            train_start = 0
+            train_end = train_bars + (i * step)
+        else:
+            train_start = i * step
+            train_end = train_start + train_bars
+
+        test_start = train_end + purge_gap_bars
+        test_end = min(n, test_start + test_bars)
+
+        if test_start < n:
+            t_train = clean_df.iloc[train_start:train_end].copy()
+            t_test = clean_df.iloc[test_start:test_end].copy()
+            if len(t_train) >= 20 and len(t_test) >= 5:
+                splits.append((t_train, t_test))
+
+    if not splits:
+        t_train, t_test = chronological_train_test_split(clean_df, train_ratio=0.7, purge_gap_bars=purge_gap_bars)
+        splits.append((t_train, t_test))
+
+    return splits

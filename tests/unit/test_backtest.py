@@ -19,7 +19,7 @@ def test_transaction_costs_indian_equities():
     assert costs_buy.gross_trade_value == 10000.0
     assert costs_buy.stt_inr == 10.0 # 0.1%
     assert costs_buy.stamp_duty_inr == 1.50 # 0.0015%
-    assert costs_buy.exchange_charges_inr == 0.32 # 0.00325%
+    assert costs_buy.exchange_charges_inr == 0.30  # 0.00297% (NSE Oct 2024 circular)
     assert costs_buy.brokerage_inr == 5.0 # Min of flat 20 or 0.05% of 10k = 5
     assert costs_buy.gst_inr > 0.0
     assert costs_buy.net_trade_amount > costs_buy.gross_trade_value

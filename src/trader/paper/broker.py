@@ -91,7 +91,16 @@ class VirtualPaperBroker:
             feed_freshness=feed_freshness,
         )
 
-        final_qty = quantity or assessment.approved_quantity
+        final_qty = assessment.approved_quantity if quantity is None else quantity
+
+        # A caller-supplied quantity may reduce an approved size, but must never
+        # enlarge it or exceed the position available for a SELL.
+        if assessment.approved and (final_qty <= 0 or final_qty > assessment.approved_quantity):
+            assessment.approved = False
+            assessment.rejection_reasons.append(
+                f"Requested quantity {final_qty} exceeds the risk-approved quantity "
+                f"{assessment.approved_quantity}."
+            )
 
         # Create Order in PENDING status
         order = self.order_manager.create_order(
@@ -128,6 +137,16 @@ class VirtualPaperBroker:
         )
 
         # 3. Create Trade Record
+        # Pre-fill revalidation immediately before execution (fail closed)
+        if self.risk_manager.kill_switch.is_active():
+            reason = f"Pre-fill rejection: Emergency Kill Switch is ENGAGED: {self.risk_manager.kill_switch.get_reason()}"
+            assessment.approved = False
+            assessment.rejection_reasons.append(reason)
+            self.order_manager.update_status(order.order_id, OrderStatus.REJECTED, rejection_reason=reason)
+            order.status = OrderStatus.REJECTED
+            order.rejection_reason = reason
+            return order, None, assessment
+
         trade_id = f"trd_{uuid4().hex[:10]}"
         now_ist = datetime.now(IST)
 
@@ -149,8 +168,33 @@ class VirtualPaperBroker:
             timestamp=now_ist,
         )
 
-        # 4. Apply fill to virtual portfolio ledger
-        self.accountant.apply_fill(trade)
+        # 4. Apply fill to virtual portfolio ledger. The accountant performs
+        # final cash/inventory validation before mutating the simulated account.
+        try:
+            self.accountant.apply_fill(trade)
+        except ValueError as exc:
+            reason = f"Virtual fill rejected: {exc}"
+            assessment.approved = False
+            assessment.rejection_reasons.append(reason)
+            self.order_manager.update_status(
+                order.order_id,
+                OrderStatus.REJECTED,
+                rejection_reason=reason,
+            )
+            order.status = OrderStatus.REJECTED
+            order.rejection_reason = reason
+            if self.audit_repo:
+                self.audit_repo.log_event(
+                    event_type="ORDER_REJECTED",
+                    symbol=sym,
+                    details={
+                        "order_id": order.order_id,
+                        "side": side.value,
+                        "reason": reason,
+                    },
+                )
+            logger.warning("Simulated order %s REJECTED: %s", order.order_id, reason)
+            return order, None, assessment
 
         if self.trade_repo:
             self.trade_repo.save_trade(trade)

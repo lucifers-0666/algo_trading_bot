@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "indian-ai-paper-trader"
-version = "0.1.0"
+version = "0.2.0"
 description = "Indian Equity AI Paper Trading & Quantitative Research Platform"
-authors = [{ name = "Principal Architect & Quantitative Engineering Team" }]
+authors = [{ name = "Project contributors" }]
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -24,6 +24,8 @@ dependencies = [
     "websockets>=12.0",
     "rich>=13.7.0",
     "joblib>=1.4.0",
+    "fastapi>=0.115.0,<1.0.0",
+    "uvicorn>=0.30.0,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +34,7 @@ dev = [
     "pytest-cov>=5.0.0",
     "black>=24.4.0",
     "flake8>=7.0.0",
+    "httpx2>=2.16.0",
 ]
 
 [project.scripts]
@@ -46,4 +49,3 @@ addopts = "-v --strict-markers"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

@@ -59,6 +59,9 @@ class UniverseManager:
     def get_all_symbols(self) -> List[str]:
         return sorted(list(self._instruments.keys()))
 
+    def get_all_instruments(self) -> List[Instrument]:
+        return list(self._instruments.values())
+
     def get_symbols_by_industry(self, industry: str) -> List[str]:
         return [
             inst.symbol

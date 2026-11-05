@@ -17,6 +17,7 @@ def isolated_broker():
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "test_ks.state"
         ks = PersistentKillSwitch(state_file=p)
+        ks.deactivate("Isolation test explicit reset")
         rm = RiskManager(kill_switch=ks)
         broker = VirtualPaperBroker(risk_manager=rm)
         yield broker
@@ -44,7 +45,7 @@ def test_deliberate_risk_bypass_attempt_is_rejected(isolated_broker):
     assert assessment.approved is False
     assert order.status.value == "REJECTED"
     assert trade is None
-    assert any("breach" in r.lower() for r in assessment.rejection_reasons)
+    assert any(("breach" in r.lower()) or ("risk-approved quantity" in r.lower()) for r in assessment.rejection_reasons)
 
     # Prove ledger is untouched
     state = isolated_broker.accountant.get_portfolio_state()

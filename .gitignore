@@ -60,9 +60,26 @@ reports/runs/*
 reports/exports/*
 !reports/exports/.gitkeep
 
+# JavaScript tooling
+node_modules/
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Build/package artifacts
+build/
+dist/
+*.egg-info/
+
+# Runtime state: never track a local kill-switch state file
+config/kill_switch.state
+
 # IDE & OS files
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 desktop.ini
+# Testing & Playwright artifacts
+.playwright-mcp/
+reports/*.png

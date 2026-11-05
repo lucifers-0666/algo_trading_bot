@@ -99,14 +99,14 @@ class RiskManager:
                 rejection_reasons=rejection_reasons,
             )
 
-        # 4. Daily Loss Limit Check
-        daily_loss_allowed = portfolio.starting_cash * self.daily_loss_limit_pct
-        # If daily drawdown exceeds limit
-        current_daily_loss = portfolio.starting_cash - portfolio.total_equity
+        # 4. Daily Loss Limit Check (Calculated against current trading day's starting equity)
+        day_base_equity = portfolio.day_starting_equity if portfolio.day_starting_equity > 0 else portfolio.starting_cash
+        daily_loss_allowed = day_base_equity * self.daily_loss_limit_pct
+        current_daily_loss = day_base_equity - portfolio.total_equity
         if current_daily_loss >= daily_loss_allowed:
             rejection_reasons.append(
                 f"Daily loss limit breached: Current loss ₹{current_daily_loss:.2f} >= "
-                f"Limit ₹{daily_loss_allowed:.2f} ({self.daily_loss_limit_pct:.1%})"
+                f"Limit ₹{daily_loss_allowed:.2f} ({self.daily_loss_limit_pct:.1%} of day starting equity ₹{day_base_equity:.2f})"
             )
             # Automatically activate kill switch on daily loss breach
             self.kill_switch.activate("Daily loss limit exceeded")

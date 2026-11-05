@@ -17,7 +17,17 @@ def temp_kill_switch():
     with tempfile.TemporaryDirectory() as tmpdir:
         p = Path(tmpdir) / "test_kill_switch.state"
         ks = PersistentKillSwitch(state_file=p)
+        # Tests that exercise normal risk evaluation explicitly simulate an operator reset.
+        ks.deactivate("Test fixture explicit reset")
         yield ks
+
+
+def test_missing_kill_switch_state_fails_closed(tmp_path):
+    missing_path = tmp_path / "missing.state"
+    assert not missing_path.exists()
+    kill_switch = PersistentKillSwitch(state_file=missing_path)
+    assert kill_switch.is_active() is True
+    assert "Fail-Closed" in kill_switch.get_reason()
 
 
 def test_kill_switch_lifecycle_and_fail_closed(temp_kill_switch):

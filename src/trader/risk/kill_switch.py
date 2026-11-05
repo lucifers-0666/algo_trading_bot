@@ -21,7 +21,11 @@ class PersistentKillSwitch:
         self.state_file = Path(state_file) if state_file else DEFAULT_KILL_SWITCH_PATH
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         if not self.state_file.exists():
-            self._save_state({"active": False, "reason": "Initialized normal operation", "updated_at": datetime.now(IST).isoformat()})
+            self._save_state({
+                "active": True,
+                "reason": "Kill-switch state missing at initialization (Fail-Closed)",
+                "updated_at": datetime.now(IST).isoformat(),
+            })
 
     def _read_state(self) -> Dict[str, Any]:
         try:

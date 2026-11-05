@@ -5,6 +5,7 @@ Configures WAL mode, indexes, busy timeouts, and table schema initialization.
 import sqlite3
 from pathlib import Path
 from typing import Optional
+from contextlib import contextmanager
 import os
 
 DEFAULT_DB_PATH = Path("data/storage/paper_trader.db")
@@ -82,10 +83,25 @@ CREATE TABLE IF NOT EXISTS trades (
 CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
 CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
 
+CREATE TABLE IF NOT EXISTS positions (
+    symbol TEXT PRIMARY KEY,
+    quantity INTEGER NOT NULL,
+    average_entry_price REAL NOT NULL,
+    current_price REAL NOT NULL,
+    unrealized_pnl REAL NOT NULL DEFAULT 0.0,
+    realized_pnl REAL NOT NULL DEFAULT 0.0,
+    open_timestamp TEXT NOT NULL,
+    updated_timestamp TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_positions_symbol ON positions(symbol);
+
 CREATE TABLE IF NOT EXISTS portfolio_snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     starting_cash REAL NOT NULL,
     cash_balance REAL NOT NULL,
+    day_starting_equity REAL NOT NULL DEFAULT 10000.0,
+    last_day_reset TEXT NOT NULL DEFAULT '',
     reserved_margin REAL NOT NULL DEFAULT 0.0,
     realized_pnl REAL NOT NULL DEFAULT 0.0,
     unrealized_pnl REAL NOT NULL DEFAULT 0.0,
@@ -105,6 +121,23 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
+
+CREATE TABLE IF NOT EXISTS financial_events (
+    event_id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    category TEXT NOT NULL,
+    headline TEXT NOT NULL,
+    summary TEXT,
+    symbols TEXT,
+    sentiment_score REAL NOT NULL DEFAULT 0.0,
+    impact_level TEXT NOT NULL DEFAULT 'NEUTRAL',
+    url TEXT,
+    published_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_financial_events_published ON financial_events(published_at);
+CREATE INDEX IF NOT EXISTS idx_financial_events_category ON financial_events(category);
 """
 
 
@@ -129,11 +162,32 @@ class DatabaseManager:
         conn.execute("PRAGMA foreign_keys = ON;")
         return conn
 
+    @contextmanager
+    def transaction(self):
+        """Context manager providing an atomic SQLite transaction with rollback on error."""
+        conn = self.get_connection()
+        conn.execute("BEGIN IMMEDIATE;")
+        try:
+            yield conn
+            conn.execute("COMMIT;")
+        except Exception:
+            conn.execute("ROLLBACK;")
+            raise
+        finally:
+            conn.close()
+
     def initialize_schema(self) -> None:
-        """Executes table and index DDL."""
+        """Executes table and index DDL with column migrations for existing databases."""
         conn = self.get_connection()
         try:
             conn.executescript(SCHEMA_SQL)
+            # Automatic schema migration for existing databases
+            cursor = conn.execute("PRAGMA table_info(portfolio_snapshots);")
+            cols = [r["name"] for r in cursor.fetchall()]
+            if cols and "day_starting_equity" not in cols:
+                conn.execute("ALTER TABLE portfolio_snapshots ADD COLUMN day_starting_equity REAL NOT NULL DEFAULT 10000.0;")
+            if cols and "last_day_reset" not in cols:
+                conn.execute("ALTER TABLE portfolio_snapshots ADD COLUMN last_day_reset TEXT NOT NULL DEFAULT '';")
         finally:
             conn.close()
 
@@ -145,8 +199,10 @@ class DatabaseManager:
             conn.execute("DROP TABLE IF EXISTS instruments;")
             conn.execute("DROP TABLE IF EXISTS orders;")
             conn.execute("DROP TABLE IF EXISTS trades;")
+            conn.execute("DROP TABLE IF EXISTS positions;")
             conn.execute("DROP TABLE IF EXISTS portfolio_snapshots;")
             conn.execute("DROP TABLE IF EXISTS audit_logs;")
+            conn.execute("DROP TABLE IF EXISTS financial_events;")
             conn.executescript(SCHEMA_SQL)
         finally:
             conn.close()

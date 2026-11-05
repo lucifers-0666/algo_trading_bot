@@ -112,6 +112,10 @@ class CSVDataProvider(MarketDataProvider):
             source=DataSource.CSV,
         )
 
+    def get_available_symbols(self) -> List[str]:
+        """Returns list of currently cached symbols."""
+        return list(self._cache.keys())
+
     def get_connection_status(self) -> Dict[str, Any]:
         return {
             "provider": "csv",

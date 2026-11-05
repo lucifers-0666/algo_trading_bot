@@ -12,8 +12,11 @@ from trader.domain.models import (
     Instrument,
     Order,
     Trade,
+    Position,
     PortfolioState,
     AuditLog,
+    FinancialEvent,
+    EventImpact,
     DataSource,
     Timeframe,
     OrderSide,
@@ -299,16 +302,19 @@ class PortfolioRepository:
         try:
             query = """
             INSERT INTO portfolio_snapshots (
-                starting_cash, cash_balance, reserved_margin, realized_pnl,
+                starting_cash, cash_balance, day_starting_equity, last_day_reset,
+                reserved_margin, realized_pnl,
                 unrealized_pnl, total_equity, peak_equity, max_drawdown_pct,
                 open_positions_count, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             conn.execute(
                 query,
                 (
                     state.starting_cash,
                     state.cash_balance,
+                    state.day_starting_equity,
+                    state.last_day_reset,
                     state.reserved_margin,
                     state.realized_pnl,
                     state.unrealized_pnl,
@@ -331,9 +337,14 @@ class PortfolioRepository:
             r = cursor.fetchone()
             if not r:
                 return None
+            keys = r.keys()
+            day_starting = r["day_starting_equity"] if "day_starting_equity" in keys else r["starting_cash"]
+            last_reset = r["last_day_reset"] if "last_day_reset" in keys else ""
             return PortfolioState(
                 starting_cash=r["starting_cash"],
                 cash_balance=r["cash_balance"],
+                day_starting_equity=day_starting,
+                last_day_reset=last_reset,
                 reserved_margin=r["reserved_margin"],
                 realized_pnl=r["realized_pnl"],
                 unrealized_pnl=r["unrealized_pnl"],
@@ -343,6 +354,81 @@ class PortfolioRepository:
                 open_positions_count=r["open_positions_count"],
                 updated_at=r["updated_at"],
             )
+        finally:
+            conn.close()
+
+
+class PositionRepository:
+    """Manages persistent active equity holdings across application restarts."""
+
+    def __init__(self, db: DatabaseManager):
+        self.db = db
+
+    def save_position(self, pos: Position) -> None:
+        conn = self.db.get_connection()
+        try:
+            query = """
+            INSERT INTO positions (
+                symbol, quantity, average_entry_price, current_price,
+                unrealized_pnl, realized_pnl, open_timestamp, updated_timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(symbol) DO UPDATE SET
+                quantity = excluded.quantity,
+                average_entry_price = excluded.average_entry_price,
+                current_price = excluded.current_price,
+                unrealized_pnl = excluded.unrealized_pnl,
+                realized_pnl = excluded.realized_pnl,
+                updated_timestamp = excluded.updated_timestamp;
+            """
+            conn.execute(
+                query,
+                (
+                    pos.symbol.strip().upper(),
+                    pos.quantity,
+                    pos.average_entry_price,
+                    pos.current_price,
+                    pos.unrealized_pnl,
+                    pos.realized_pnl,
+                    pos.open_timestamp.isoformat(),
+                    pos.updated_timestamp.isoformat(),
+                ),
+            )
+        finally:
+            conn.close()
+
+    def delete_position(self, symbol: str) -> None:
+        conn = self.db.get_connection()
+        try:
+            conn.execute("DELETE FROM positions WHERE symbol = ?", (symbol.strip().upper(),))
+        finally:
+            conn.close()
+
+    def get_all_positions(self) -> List[Position]:
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.execute("SELECT * FROM positions WHERE quantity > 0")
+            positions = []
+            for r in cursor.fetchall():
+                positions.append(
+                    Position(
+                        symbol=r["symbol"],
+                        quantity=r["quantity"],
+                        average_entry_price=r["average_entry_price"],
+                        current_price=r["current_price"],
+                        unrealized_pnl=r["unrealized_pnl"],
+                        realized_pnl=r["realized_pnl"],
+                        open_timestamp=r["open_timestamp"],
+                        updated_timestamp=r["updated_timestamp"],
+                    )
+                )
+            return positions
+        finally:
+            conn.close()
+
+    def clear_all(self) -> None:
+        conn = self.db.get_connection()
+        try:
+            conn.execute("DELETE FROM positions")
         finally:
             conn.close()
 
@@ -404,4 +490,130 @@ class AuditRepository:
             return logs
         finally:
             conn.close()
+
+
+class FinancialEventRepository:
+    """Persistence repository for structured financial news and geopolitical events."""
+
+    def __init__(self, db: DatabaseManager):
+        self.db = db
+
+    def save_event(self, event: FinancialEvent) -> None:
+        conn = self.db.get_connection()
+        try:
+            query = """
+            INSERT INTO financial_events (
+                event_id, source, category, headline, summary, symbols,
+                sentiment_score, impact_level, url, published_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id) DO UPDATE SET
+                headline = excluded.headline,
+                summary = excluded.summary,
+                symbols = excluded.symbols,
+                sentiment_score = excluded.sentiment_score,
+                impact_level = excluded.impact_level;
+            """
+            conn.execute(
+                query,
+                (
+                    event.event_id,
+                    event.source,
+                    event.category,
+                    event.headline,
+                    event.summary,
+                    json.dumps(event.symbols),
+                    event.sentiment_score,
+                    event.impact_level.value,
+                    event.url,
+                    event.published_at.isoformat(),
+                    event.created_at.isoformat(),
+                ),
+            )
+        finally:
+            conn.close()
+
+    def save_events(self, events: List[FinancialEvent]) -> int:
+        if not events:
+            return 0
+        conn = self.db.get_connection()
+        inserted = 0
+        try:
+            conn.execute("BEGIN TRANSACTION;")
+            query = """
+            INSERT INTO financial_events (
+                event_id, source, category, headline, summary, symbols,
+                sentiment_score, impact_level, url, published_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id) DO NOTHING;
+            """
+            for ev in events:
+                conn.execute(
+                    query,
+                    (
+                        ev.event_id,
+                        ev.source,
+                        ev.category,
+                        ev.headline,
+                        ev.summary,
+                        json.dumps(ev.symbols),
+                        ev.sentiment_score,
+                        ev.impact_level.value,
+                        ev.url,
+                        ev.published_at.isoformat(),
+                        ev.created_at.isoformat(),
+                    ),
+                )
+                inserted += 1
+            conn.execute("COMMIT;")
+            return inserted
+        except Exception:
+            conn.execute("ROLLBACK;")
+            raise
+        finally:
+            conn.close()
+
+    def get_recent_events(
+        self, limit: int = 50, category: Optional[str] = None, symbol: Optional[str] = None
+    ) -> List[FinancialEvent]:
+        conn = self.db.get_connection()
+        try:
+            sql = "SELECT * FROM financial_events WHERE 1=1"
+            params: List[Any] = []
+            if category:
+                sql += " AND category = ?"
+                params.append(category.upper())
+            if symbol:
+                sql += " AND symbols LIKE ?"
+                params.append(f"%{symbol.upper()}%")
+            sql += " ORDER BY published_at DESC LIMIT ?"
+            params.append(limit)
+
+            cursor = conn.execute(sql, params)
+            events = []
+            for r in cursor.fetchall():
+                symbols_list = []
+                try:
+                    symbols_list = json.loads(r["symbols"]) if r["symbols"] else []
+                except Exception:
+                    symbols_list = [r["symbols"]] if r["symbols"] else []
+
+                events.append(
+                    FinancialEvent(
+                        event_id=r["event_id"],
+                        source=r["source"],
+                        category=r["category"],
+                        headline=r["headline"],
+                        summary=r["summary"],
+                        symbols=symbols_list,
+                        sentiment_score=float(r["sentiment_score"]),
+                        impact_level=EventImpact(r["impact_level"]),
+                        url=r["url"],
+                        published_at=datetime.fromisoformat(r["published_at"]),
+                        created_at=datetime.fromisoformat(r["created_at"]),
+                    )
+                )
+            return events
+        finally:
+            conn.close()
+
 

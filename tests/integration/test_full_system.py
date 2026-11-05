@@ -61,6 +61,7 @@ def test_full_pipeline_end_to_end():
         # 5. Risk Manager & Paper Broker
         ks_path = Path(tmpdir) / "e2e_ks.state"
         ks = PersistentKillSwitch(state_file=ks_path)
+        ks.deactivate("Integration test explicit reset")
         rm = RiskManager(kill_switch=ks)
         accountant = PortfolioAccountant(starting_cash=10000.0, portfolio_repo=pf_repo)
         order_manager = OrderManager(order_repo=order_repo)
