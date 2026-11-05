@@ -17,9 +17,9 @@
 | **Execution Mode** | **STRICTLY VIRTUAL PAPER TRADING** (Real demat order routing excluded) |
 | **Virtual Starting Capital** | ₹10,000 INR |
 | **Database** | SQLite 3 (`data/storage/paper_trader.db`) with WAL Mode, ACID Transactions, & Repository Layer |
-| **Frontend Workstation** | React 19 + TypeScript + Vite across 21 dedicated quantitative views |
-| **Backend REST API** | FastAPI running on loopback (`127.0.0.1:8000`) across 31 typed endpoints |
-| **Automated Test Suite** | **118 passed / 0 failed / 81% code coverage** |
+| **Frontend Workstation** | React 19 + TypeScript + Vite across 22 dedicated quantitative views |
+| **Backend REST API** | FastAPI running on loopback (`127.0.0.1:8000`) across 36 typed endpoints |
+| **Automated Test Suite** | **122 passed / 0 failed / 81% code coverage** |
 
 ---
 
@@ -98,3 +98,12 @@
   - `RiskProtectionManager` with consecutive loss circuit breaker (3 losses = 48h freeze) and per-symbol post-stop cooldowns.
   - `DecisionEngine` synthesizing technical signals, market regimes, ML probability, news sentiment, and risk guardrails into an institutional `DecisionDossier`.
   - Expanded React workstation to **21 views** adding Financial Intelligence, AI Research Lab, Decision Support, and Lookahead Audit views.
+
+
+- [x] **Phase 13: Autonomous Paper Trading Daemon & Tailwind v4 Workstation Integration**
+  - Integrated Tailwind CSS v4 via `@tailwindcss/vite` and unified semantic design tokens in `styles.css`.
+  - Implemented `AutonomousPaperTradingDaemon` in `src/trader/paper/daemon.py` with NSE market session detection, trailing stop-loss execution, profit target taking, and alpha candidate paper buys.
+  - Added REST endpoints: `GET /api/v1/bot/status`, `POST /api/v1/bot/start`, `POST /api/v1/bot/stop`, `POST /api/v1/bot/step`, `POST /api/v1/bot/config`.
+  - Created `AutoTraderBotView.tsx` with live 3-second streaming audit tape, market hours monitor, and execution controls (22 total workstation views).
+  - Added interactive Autonomous Bot Controller banner on Overview dashboard.
+  - Created 1-click Windows desktop shortcut and launcher scripts (`start_platform.bat`, `start_platform.ps1`, `create_desktop_shortcut.ps1`).

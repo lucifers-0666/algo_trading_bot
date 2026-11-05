@@ -323,3 +323,4 @@ class AutonomousPaperTradingDaemon:
                     logger.error(f"Failed to execute target sell for {sym}: {e}")
 
         return closed
+

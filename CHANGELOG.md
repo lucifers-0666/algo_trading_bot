@@ -145,13 +145,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Institutional Decision Support Engine (`src/trader/decision/`)**
   - `DecisionEngine` synthesizing technical signals, market regimes, ML probability, news sentiment, and risk guardrails into an institutional `DecisionDossier`.
 
-- **21-View React Workstation**
+- **22-View React Workstation & Tailwind v4 Integration**
+  - Integrated `@tailwindcss/vite` and unified semantic design tokens in `styles.css`.
+  - `AutoTraderBotView.tsx`: Autonomous bot controller, live 3-second streaming audit tape, market hours monitor, and execution controls.
+  - `OverviewView.tsx`: Embedded real-time Autonomous Bot Controller status banner.
   - `FinancialIntelligenceView.tsx`: Live news tape, sentiment meter, category filter, refresh feeds button.
   - `LocalAiResearchView.tsx`: AI GPU telemetry, news analyzer, trade signal explainer, executive stock dossier.
   - `DecisionSupportView.tsx`: Multi-model confluence score, conviction breakdowns, 1-click simulated buy with human confirmation.
   - `LookaheadAuditView.tsx`: Interactive lookahead bias detector, hyperopt search, protections status and reset.
 
-- **Expanded FastAPI REST Endpoints (31 Endpoints)**
+- **Autonomous Paper Trading Daemon & Launcher Utilities**
+  - `AutonomousPaperTradingDaemon` (`src/trader/paper/daemon.py`) for automated market hours monitoring, stop-loss trailing, profit target taking, and alpha paper executions.
+  - Windows 1-click desktop shortcut (`create_desktop_shortcut.ps1`) and batch/powershell launchers (`start_platform.bat`, `start_platform.ps1`).
+
+- **Expanded FastAPI REST Endpoints (36 Endpoints)**
+  - Autonomous Bot: `GET /api/v1/bot/status`, `POST /api/v1/bot/start`, `POST /api/v1/bot/stop`, `POST /api/v1/bot/step`, `POST /api/v1/bot/config`.
   - Financial AI: `GET /api/v1/ai/health`, `POST /api/v1/ai/analyze-news`, `POST /api/v1/ai/explain-signal`, `POST /api/v1/ai/stock-dossier`.
   - Intelligence: `GET /api/v1/intelligence/feed`, `GET /api/v1/intelligence/sentiment/{symbol}`, `POST /api/v1/intelligence/refresh`.
   - Strategies & Audit: `POST /api/v1/strategies/audit-lookahead`, `POST /api/v1/strategies/hyperopt`, `GET /api/v1/protections/status`, `POST /api/v1/protections/reset`.

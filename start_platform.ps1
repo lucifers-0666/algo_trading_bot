@@ -117,3 +117,4 @@ try {
     if ($FrontendJob -and -not $FrontendJob.HasExited) { Stop-Process -Id $FrontendJob.Id -Force -ErrorAction SilentlyContinue }
     Write-Host "Services stopped cleanly." -ForegroundColor Green
 }
+

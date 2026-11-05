@@ -14,3 +14,4 @@ $Shortcut.IconLocation = "shell32.dll,243" # Trading / graph icon
 $Shortcut.Save()
 
 Write-Host "[OK] Desktop shortcut created at: $ShortcutPath" -ForegroundColor Green
+

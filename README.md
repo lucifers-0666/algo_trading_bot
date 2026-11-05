@@ -4,22 +4,22 @@
 [![React 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135-green.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests: 118 Passing](https://img.shields.io/badge/tests-118%20passing-brightgreen.svg)]()
+[![Tests: 122 Passing](https://img.shields.io/badge/tests-122%20passing-brightgreen.svg)]()
 [![Coverage: 81%](https://img.shields.io/badge/coverage-81%25-brightgreen.svg)]()
 [![Hardware: NVIDIA RTX 5060](https://img.shields.io/badge/GPU-RTX%205060%20(8GB)-76B900.svg)]()
 
-An institutional-grade quantitative research, financial intelligence, and paper-trading workstation designed specifically for Indian cash equity markets (NSE). The Python backend provides data ingestion, technical indicators, machine-learning pipelines, multiple strategies, event-driven backtesting, financial news intelligence, local specialist AI reasoning, and strict risk guardrails. A modern, high-density React 19 workstation provides **21 dedicated quantitative views** for screening, charting, strategy comparison, lookahead audit, intelligence feeds, AI dossiers, and simulated order execution.
+An institutional-grade quantitative research, financial intelligence, and paper-trading workstation designed specifically for Indian cash equity markets (NSE). The Python backend provides data ingestion, technical indicators, machine-learning pipelines, multiple strategies, event-driven backtesting, financial news intelligence, local specialist AI reasoning, an autonomous background paper-trading daemon, and strict risk guardrails. A modern, high-density React 19 workstation provides **22 dedicated quantitative views** for screening, charting, strategy comparison, lookahead audit, intelligence feeds, AI dossiers, and automated simulated order execution.
 
 > **Safety boundary:** Strictly virtual research and simulated paper trading. No demat account integration or live broker order routing is implemented. Zero real-money exposure. All server endpoints are bound exclusively to `127.0.0.1`.
 
 ---
 
-## 1. Workstation Architecture (21 Views)
+## 1. Workstation Architecture (22 Views)
 
 The workstation operates across 5 functional areas:
 
 - **Workspace:**
-  1. `Overview`: Unified executive telemetry, virtual capital mark-to-market, today's P&L, feed latency, active positions gauge, scanner opportunities, and recent orders.
+  1. `Overview`: Unified executive telemetry, virtual capital mark-to-market, today's P&L, feed latency, active positions gauge, scanner opportunities, autonomous bot controller banner, and recent orders.
   2. `Market Scanner`: Multi-factor screening across 6 categories (Gainers, Losers, Momentum, Breakouts, RVOL, All), liquid-only filtering, transparent inclusion/exclusion reasoning, and direct navigation to Research Chart or Trading Terminal.
   3. `Instrument Master`: Curated NSE cash equity universe browser, ISIN numbers, lot sizes, tick sizes, sector classification, and market depth snapshots.
   4. `Stock Research`: Interactive multi-pane SVG candlestick chart with SMA 20/50 overlays, volume bars, RSI(14) oscillator, and real-time Market Regime banner (`ALLOW_TRADING`, `REDUCE_SIZE`, `NO_TRADE`).
@@ -35,15 +35,16 @@ The workstation operates across 5 functional areas:
   13. `Model Registry`: Versioned catalog of trained ML artifacts with out-of-sample test metrics.
 - **Simulated Paper Trading:**
   14. `Trading Terminal`: Simulated paper order entry, pre-trade risk verification, 2% risk budget sizing preview, and one-click execution.
-  15. `Portfolio & Holdings`: Active open equity holdings table with live mark-to-market P&L, allocation progress bar, and position close actions.
-  16. `Order History`: Filterable audit ledger of all simulated paper orders (PENDING, FILLED, REJECTED) with rejection rationales.
-  17. `Performance Analytics`: Cumulative returns, peak drawdown, trade win/loss counts, fee attribution, and equity curve trajectory.
+  15. `Auto-trading Bot`: Autonomous paper trading daemon monitoring the Indian market, scanning alpha setups, managing trailing stops, and executing simulated paper orders.
+  16. `Portfolio & Holdings`: Active open equity holdings table with live mark-to-market P&L, allocation progress bar, and position close actions.
+  17. `Order History`: Filterable audit ledger of all simulated paper orders (PENDING, FILLED, REJECTED) with rejection rationales.
+  18. `Performance Analytics`: Cumulative returns, peak drawdown, trade win/loss counts, fee attribution, and equity curve trajectory.
 - **Risk & Compliance:**
-  18. `Risk Management`: Emergency fail-closed Kill Switch controller (Engage / Disengage) and portfolio risk guardrail gauges.
-  19. `Audit Logs`: Cryptographically sequenced immutable event stream table with JSON payload inspector.
+  19. `Risk Management`: Emergency fail-closed Kill Switch controller (Engage / Disengage) and portfolio risk guardrail gauges.
+  20. `Audit Logs`: Cryptographically sequenced immutable event stream table with JSON payload inspector.
 - **System & Data:**
-  20. `Market Data & Feeds`: Data provenance tracking (`REAL-TIME`, `HISTORICAL`, `SYNTHETIC`, `UNAVAILABLE`), feed latency watchdog, market session status, and TrueData / DhanHQ credentials configuration.
-  21. `System Settings`: Localhost binding verification (`127.0.0.1`), SQLite WAL mode status, and Virtual Paper Account Reset with explicit confirmation modal.
+  21. `Market Data & Feeds`: Data provenance tracking (`REAL-TIME`, `HISTORICAL`, `SYNTHETIC`, `UNAVAILABLE`), feed latency watchdog, market session status, and TrueData / DhanHQ credentials configuration.
+  22. `System Settings`: Localhost binding verification (`127.0.0.1`), SQLite WAL mode status, and Virtual Paper Account Reset with explicit confirmation modal.
 
 ---
 

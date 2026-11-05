@@ -55,3 +55,4 @@ def test_bot_config_update():
     data = res.json()
     assert data["force_market_open"] is True
     assert data["scan_interval_seconds"] == 45
+
