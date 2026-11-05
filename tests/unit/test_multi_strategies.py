@@ -89,3 +89,41 @@ def test_scanner_snapshot_cache():
     engine.clear_cache()
     assert len(engine._metrics_cache) == 0
 
+
+def test_news_sentiment_strategy():
+    from trader.strategies.news_sentiment_strategy import NewsSentimentStrategy
+    from trader.features.technical import candles_to_dataframe, compute_all_indicators
+
+    candles = generate_synthetic_candles("INFY", num_days=100, seed=42)
+    df = candles_to_dataframe(candles)
+    df_ind = compute_all_indicators(df)
+
+    strat = NewsSentimentStrategy(min_sentiment_score=0.20)
+
+    # When sentiment is negative or below min_sentiment_score, entry is blocked
+    sig_low = strat.evaluate_entry(df_ind, sentiment_score=-0.10)
+    assert sig_low is None
+
+    # Exit evaluations work properly
+    exit_sig = strat.evaluate_exit(df_ind, entry_price=1600.0, stop_loss=1500.0, target=1700.0, holding_candles=20)
+    assert exit_sig is not None
+
+
+def test_relative_strength_strategy():
+    from trader.strategies.relative_strength import SectorRelativeStrengthStrategy
+    from trader.features.technical import candles_to_dataframe, compute_all_indicators
+
+    stock_candles = generate_synthetic_candles("TCS", num_days=100, seed=42)
+    bm_candles = generate_synthetic_candles("RELIANCE", num_days=100, seed=10)
+
+    df_stock = compute_all_indicators(candles_to_dataframe(stock_candles))
+    df_bm = compute_all_indicators(candles_to_dataframe(bm_candles))
+
+    strat = SectorRelativeStrengthStrategy(lookback_bars=20, min_alpha=0.01)
+    alpha = strat.compute_relative_strength(df_stock, df_bm)
+    assert isinstance(alpha, float)
+
+    # Check exit
+    exit_sig = strat.evaluate_exit(df_stock, entry_price=3900.0, stop_loss=3800.0, target=4100.0, holding_candles=25)
+    assert exit_sig is not None
+
