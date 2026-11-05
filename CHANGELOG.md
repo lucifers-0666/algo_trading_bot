@@ -110,3 +110,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Daily loss limit now correctly tracks today's starting equity (`day_starting_equity`) rather than the initial ₹10,000 capital, preventing false halts on profitable trading days.
 - Isolated local `np.random.default_rng` in synthetic data generator to eliminate global state mutation.
 - Resolved NaN feature rejection in Gradient Boosting models by embedding `SimpleImputer(strategy="median")`.
+
+
+## [0.3.0] - 2026-11-05
+
+### Added
+- **Bloomberg-Style Financial Intelligence System (`src/trader/intelligence/`)**
+  - GDELT 2.0 Doc API ingestion client with macro/India query filtering and rate-limit backoff.
+  - Corporate filings and circulars parser for NSE/BSE filings, SEBI regulatory circulars, and RBI monetary policy statements.
+  - Domain-specific financial taxonomy and classifier categorizing events into `EARNINGS`, `ORDER_WIN`, `M_AND_A`, `REGULATORY`, `MACRO`, and `GEOPOLITICAL`.
+  - Token Jaccard similarity and hash deduplication engine suppressing duplicate wire reports within a 24-hour sliding window.
+  - Aggregated sentiment telemetry in $[-1.0, 1.0]$ per NSE instrument with negative impact dampening.
+  - SQLite persistence table `financial_events` and repository layer `FinancialEventRepository`.
+
+- **Specialist Local Financial AI Integration (`src/trader/ai/` & `scripts/`)**
+  - `LocalFinancialAIClient` connecting to local OpenAI-compatible endpoints (`http://127.0.0.1:11434/v1` or `http://127.0.0.1:8000/v1`) with full acceleration on NVIDIA RTX 5060 (8GB VRAM).
+  - Robust deterministic heuristic fallback mode when local LLM server is offline, ensuring 100% platform availability.
+  - Pydantic V2 schemas: `NewsAnalysisRequest/Response`, `SignalExplanationRequest/Response`, `StockDossierRequest/Response`, `AIHealthResponse`.
+  - Modular prompt templates: `news_prompt.txt` and `signal_prompt.txt`.
+  - Operational PowerShell scripts: `setup_financial_model.ps1`, `verify_financial_model.ps1`, `start_financial_model.ps1`, `stop_financial_model.ps1`.
+
+- **Clean-Room Freqtrade Patterns (`src/trader/strategies/`)**
+  - Comprehensive architectural and licensing evaluation (`docs/FREQTRADE_INTEGRATION_ASSESSMENT.md`) documenting GPL-3.0 isolation rules and clean-room implementation boundary.
+  - `LookaheadBiasDetector` conducting point-in-time incremental candle slice audits ensuring zero future data leakage.
+  - `HyperoptOptimizer` searching parameter spaces optimized on Sortino, Calmar, and Profit Factor metrics.
+  - `RiskProtectionManager` with consecutive-loss circuit breakers (3 losses = 48h freeze) and post-stop symbol cooldowns.
+  - Multi-strategy expansion: `NewsSentimentStrategy` (trend + positive sentiment confirmation) and `RelativeStrengthStrategy` (alpha outperformance vs NIFTY 50).
+
+- **Authoritative Indian Market Data Architecture (`src/trader/providers/`)**
+  - `DhanAdapter` for SEBI-registered broker DhanHQ: streaming quotes, 5-depth order books, and daily/minute historical OHLCV with hard assertion against order placement.
+  - Extended NSE calendar with Diwali Muhurat trading session handling (18:15-19:15 IST) and dynamic holiday schedule updater.
+  - Comprehensive provider evaluation: `docs/INDIAN_MARKET_DATA_PROVIDER_COMPARISON.md`.
+
+- **Institutional Decision Support Engine (`src/trader/decision/`)**
+  - `DecisionEngine` synthesizing technical signals, market regimes, ML probability, news sentiment, and risk guardrails into an institutional `DecisionDossier`.
+
+- **21-View React Workstation**
+  - `FinancialIntelligenceView.tsx`: Live news tape, sentiment meter, category filter, refresh feeds button.
+  - `LocalAiResearchView.tsx`: AI GPU telemetry, news analyzer, trade signal explainer, executive stock dossier.
+  - `DecisionSupportView.tsx`: Multi-model confluence score, conviction breakdowns, 1-click simulated buy with human confirmation.
+  - `LookaheadAuditView.tsx`: Interactive lookahead bias detector, hyperopt search, protections status and reset.
+
+- **Expanded FastAPI REST Endpoints (31 Endpoints)**
+  - Financial AI: `GET /api/v1/ai/health`, `POST /api/v1/ai/analyze-news`, `POST /api/v1/ai/explain-signal`, `POST /api/v1/ai/stock-dossier`.
+  - Intelligence: `GET /api/v1/intelligence/feed`, `GET /api/v1/intelligence/sentiment/{symbol}`, `POST /api/v1/intelligence/refresh`.
+  - Strategies & Audit: `POST /api/v1/strategies/audit-lookahead`, `POST /api/v1/strategies/hyperopt`, `GET /api/v1/protections/status`, `POST /api/v1/protections/reset`.
+  - Decision Support: `POST /api/v1/decision/evaluate`.
+
+### Fixed
+- Fixed future candle timestamp rejection in `src/trader/data/synthetic.py::get_trading_days` by anchoring start date to the latest completed trading session when current time is before 15:30 IST.
+- Fixed kill switch fail-safe to start strictly in ENGAGED mode when persistence state is missing or corrupted.
+- Eliminated all mock price derivations and fabricated quotes: unavailable quotes return `None` with `DataSource.UNAVAILABLE`.
+- Enforced strict feed freshness guard rejecting simulated buy orders when market feed is `STALE`, `UNAVAILABLE`, or in `ERROR`.
