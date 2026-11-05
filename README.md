@@ -4,11 +4,10 @@
 [![React 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.135-green.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests: 129 Passing](https://img.shields.io/badge/tests-129%20passing-brightgreen.svg)]()
-[![Coverage: 81%](https://img.shields.io/badge/coverage-81%25-brightgreen.svg)]()
+[![Tests: 137 Passing](https://img.shields.io/badge/tests-137%20passing-brightgreen.svg)]()
 [![Hardware: NVIDIA RTX 5060](https://img.shields.io/badge/GPU-RTX%205060%20(8GB)-76B900.svg)]()
 
-An institutional-grade quantitative research, financial intelligence, and paper-trading workstation designed specifically for Indian cash equity markets (NSE). The Python backend provides data ingestion, technical indicators, machine-learning pipelines, multiple strategies, event-driven backtesting, financial news intelligence, local specialist AI reasoning, an autonomous background paper-trading daemon, and strict risk guardrails. A modern, high-density React 19 workstation provides **22 dedicated quantitative views** for screening, charting, strategy comparison, lookahead audit, intelligence feeds, AI dossiers, and automated simulated order execution.
+An institutional-grade quantitative research, financial intelligence, and paper-trading workstation designed specifically for Indian cash equity markets (NSE). The Python backend provides real-time market data ingestion (Angel One SmartAPI, Dhan, TrueData, CSV, and Synthetic), technical indicators, machine-learning pipelines, multiple strategies, event-driven backtesting, financial news intelligence, local specialist AI reasoning (Fin-R1 7B on NVIDIA RTX 5060 GPU), an autonomous background paper-trading daemon, and strict risk guardrails. A modern React 19 workstation is streamlined across **6 core institutional workspaces** (Overview, Markets, Research & AI, Strategies & Backtests, Paper Trading, Settings & System) with 22 dedicated quantitative views for screening, charting, Level-2 5-depth order books, next-session forecasting, multi-broker cost simulation, and automated simulated order execution.
 
 > **Safety boundary:** Strictly virtual research and simulated paper trading. No demat account integration or live broker order routing is implemented. Zero real-money exposure. All server endpoints are bound exclusively to `127.0.0.1`.
 

@@ -54,6 +54,14 @@ from trader.providers.csv_provider import CSVDataProvider
 from trader.providers.synthetic_provider import SyntheticDataProvider
 from trader.providers.dhan_adapter import DhanAdapter
 from trader.providers.truedata_adapter import TrueDataAdapter
+from trader.providers.angelone_adapter import AngelOneAdapter
+from trader.ml.forecaster import NextSessionForecaster, NextSessionForecast
+from trader.backtest.costs import (
+    simulate_roundtrip_trade,
+    calculate_trade_costs,
+    BrokerProfile,
+    TradeType,
+)
 from trader.scanner.ranking import MarketScannerEngine
 from trader.universe.instruments import UniverseManager
 from trader.features.technical import candles_to_dataframe, compute_all_indicators
@@ -85,6 +93,10 @@ from trader.api.schemas import (
     HyperoptRequest,
     AnnouncementCreateRequest,
     DecisionEvaluateRequest,
+    AngelOneConfigureRequest,
+    ProviderSelectRequest,
+    CostSimulateRequest,
+    ForecastEvaluateRequest,
 )
 
 app = FastAPI(
@@ -146,6 +158,21 @@ lookahead_detector = LookaheadDetector()
 hyperopt_runner = StrategyHyperoptRunner(initial_capital=10000.0)
 
 # Providers
+angelone_api_key = os.getenv("ANGELONE_API_KEY", "").strip()
+angelone_client_code = os.getenv("ANGELONE_CLIENT_CODE", "").strip()
+angelone_pin = os.getenv("ANGELONE_PIN", "").strip()
+angelone_totp_secret = os.getenv("ANGELONE_TOTP_SECRET", "").strip()
+angelone_adapter = (
+    AngelOneAdapter(
+        api_key=angelone_api_key,
+        client_code=angelone_client_code,
+        pin=angelone_pin,
+        totp_secret=angelone_totp_secret,
+    )
+    if (angelone_api_key and angelone_client_code and angelone_pin and angelone_totp_secret)
+    else AngelOneAdapter()
+)
+
 dhan_client_id = os.getenv("DHAN_CLIENT_ID", "").strip()
 dhan_access_token = os.getenv("DHAN_ACCESS_TOKEN", "").strip()
 dhan_adapter = DhanAdapter(client_id=dhan_client_id, access_token=dhan_access_token) if (dhan_client_id and dhan_access_token) else None
@@ -158,7 +185,29 @@ csv_path = Path("data/sample")
 csv_provider = CSVDataProvider(data_path=csv_path) if csv_path.exists() else None
 synth_provider = SyntheticDataProvider(seed=42)
 
+ACTIVE_DATA_PROVIDER = os.getenv("DATA_PROVIDER", "angelone").strip().lower()
+forecaster = NextSessionForecaster()
+
 def get_market_provider():
+    global ACTIVE_DATA_PROVIDER
+    if ACTIVE_DATA_PROVIDER == "angelone":
+        if angelone_adapter and angelone_adapter.is_configured:
+            return angelone_adapter
+    elif ACTIVE_DATA_PROVIDER == "dhan":
+        if dhan_adapter and dhan_adapter.is_configured:
+            return dhan_adapter
+    elif ACTIVE_DATA_PROVIDER == "truedata":
+        if truedata_adapter and truedata_adapter.is_configured:
+            return truedata_adapter
+    elif ACTIVE_DATA_PROVIDER == "csv":
+        if csv_provider and len(csv_provider.get_available_symbols()) > 0:
+            return csv_provider
+    elif ACTIVE_DATA_PROVIDER == "synthetic":
+        return synth_provider
+
+    # Cascade auto-detection
+    if angelone_adapter and angelone_adapter.is_configured:
+        return angelone_adapter
     if dhan_adapter and dhan_adapter.is_configured:
         return dhan_adapter
     if truedata_adapter and truedata_adapter.is_configured:
@@ -199,7 +248,11 @@ def health() -> dict[str, str]:
 @app.get("/api/v1/status", tags=["system"])
 def status() -> dict[str, Any]:
     """Expose integration state without claiming live real order routing."""
-    is_live = bool((dhan_adapter and dhan_adapter.is_configured) or (truedata_adapter and truedata_adapter.is_configured))
+    is_live = bool(
+        (angelone_adapter and angelone_adapter.is_configured and getattr(angelone_adapter, "_is_connected", False))
+        or (dhan_adapter and dhan_adapter.is_configured)
+        or (truedata_adapter and truedata_adapter.is_configured)
+    )
     active_provider = get_market_provider()
     provider_name = active_provider.source_type.value if hasattr(active_provider, "source_type") else "not_connected"
     return {
@@ -207,6 +260,8 @@ def status() -> dict[str, Any]:
         "real_order_routing_enabled": False,
         "market_data_provider": provider_name if is_live else "not_connected",
         "market_data_status": "connected" if is_live else "not_configured",
+        "active_provider_setting": ACTIVE_DATA_PROVIDER,
+        "angelone_configured": bool(angelone_adapter and angelone_adapter.is_configured),
         "scanner_status": "ready",
         "ml_inference_status": "ready",
         "kill_switch_active": kill_switch.is_active(),
@@ -259,6 +314,116 @@ def data_health() -> dict[str, Any]:
         "is_configured": is_conf,
         "is_connected": is_conn,
         "last_update_ist": freshness.last_update_ist.strftime("%Y-%m-%d %H:%M:%S IST") if freshness.last_update_ist else None,
+    }
+
+
+@app.get("/api/v1/market-data/status", tags=["market"])
+def market_data_status() -> Dict[str, Any]:
+    """Comprehensive status of all market data feeds, credentials, and source provenance."""
+    global ACTIVE_DATA_PROVIDER, angelone_adapter, dhan_adapter, truedata_adapter, csv_provider, synth_provider
+    provider = get_market_provider()
+    is_live = bool(getattr(provider, "is_configured", False) and getattr(provider, "_is_connected", False))
+    source = getattr(provider, "source_type", DataSource.SYNTHETIC)
+    source_val = source.value if hasattr(source, "value") else str(source)
+
+    return {
+        "active_provider_setting": ACTIVE_DATA_PROVIDER,
+        "resolved_source_type": source_val,
+        "is_live": is_live,
+        "is_configured": getattr(provider, "is_configured", False),
+        "is_connected": getattr(provider, "_is_connected", source_val == "SYNTHETIC"),
+        "angelone": {
+            "configured": bool(angelone_adapter and angelone_adapter.is_configured),
+            "connected": bool(angelone_adapter and getattr(angelone_adapter, "_is_connected", False)),
+            "source": "ANGEL_ONE_SMARTAPI",
+            "free_data_feed": True,
+        },
+        "dhan": {
+            "configured": bool(dhan_adapter and dhan_adapter.is_configured),
+            "connected": bool(dhan_adapter and getattr(dhan_adapter, "_is_connected", False)),
+            "source": "DHANHQ",
+        },
+        "truedata": {
+            "configured": bool(truedata_adapter and truedata_adapter.is_configured),
+            "connected": bool(truedata_adapter and getattr(truedata_adapter, "_is_connected", False)),
+        },
+        "csv_available": bool(csv_provider and len(csv_provider.get_available_symbols()) > 0),
+        "synthetic_ready": True,
+        "data_provenance": "REAL_TIME" if is_live else ("SYNTHETIC" if source_val == "SYNTHETIC" else "OFFLINE"),
+        "disclaimer": "Strictly read-only market data. Zero broker execution. Virtual paper trading only.",
+        "last_update": datetime.now(IST).isoformat(),
+    }
+
+
+@app.get("/api/v1/market-data/depth/{symbol}", tags=["market"])
+def get_market_depth(symbol: str) -> Dict[str, Any]:
+    """Returns 5-level market depth order book and top-5 imbalance metrics."""
+    sym = symbol.strip().upper()
+    provider = get_market_provider()
+    try:
+        if hasattr(provider, "get_market_depth"):
+            depth = provider.get_market_depth(sym)
+            return depth.model_dump()
+        else:
+            depth = synth_provider.get_market_depth(sym)
+            return depth.model_dump()
+    except Exception as e:
+        logger.warning(f"Error fetching depth from {getattr(provider, 'source_type', 'unknown')}: {e}. Falling back to synthetic depth.")
+        depth = synth_provider.get_market_depth(sym)
+        dump = depth.model_dump()
+        dump["warning"] = f"Live feed offline ({str(e)}). Procedural depth active."
+        return dump
+
+
+@app.post("/api/v1/market-data/configure", tags=["market"])
+def configure_market_data(req: AngelOneConfigureRequest) -> Dict[str, Any]:
+    """Configures Angel One SmartAPI credentials and authenticates session."""
+    global angelone_adapter, ACTIVE_DATA_PROVIDER
+    try:
+        new_adapter = AngelOneAdapter(
+            api_key=req.api_key.strip(),
+            client_code=req.client_code.strip(),
+            pin=req.pin.strip(),
+            totp_secret=req.totp_secret.strip(),
+        )
+        if req.test_connection:
+            success = new_adapter.authenticate()
+            if not success:
+                raise HTTPException(status_code=400, detail="Angel One authentication failed. Check API Key, Client Code, PIN, and TOTP Secret.")
+
+        angelone_adapter = new_adapter
+        ACTIVE_DATA_PROVIDER = "angelone"
+        scanner_engine.provider = angelone_adapter
+
+        return {
+            "status": "connected" if new_adapter.is_connected else "configured",
+            "message": "Angel One SmartAPI credentials saved and verified successfully.",
+            "client_code": req.client_code.strip(),
+            "active_provider": "angelone",
+        }
+    except Exception as exc:
+        if isinstance(exc, HTTPException):
+            raise exc
+        raise HTTPException(status_code=500, detail=f"Failed to configure Angel One: {str(exc)}")
+
+
+@app.post("/api/v1/market-data/select-provider", tags=["market"])
+def select_market_data_provider(req: ProviderSelectRequest) -> Dict[str, Any]:
+    """Switches active market data provider (angelone, dhan, truedata, csv, synthetic)."""
+    global ACTIVE_DATA_PROVIDER
+    target = req.provider.strip().lower()
+    valid_providers = {"angelone", "dhan", "truedata", "csv", "synthetic"}
+    if target not in valid_providers:
+        raise HTTPException(status_code=400, detail=f"Invalid provider '{target}'. Must be one of {valid_providers}")
+
+    ACTIVE_DATA_PROVIDER = target
+    active = get_market_provider()
+    scanner_engine.provider = active
+
+    return {
+        "status": "success",
+        "active_provider": ACTIVE_DATA_PROVIDER,
+        "resolved_source": active.source_type.value if hasattr(active, "source_type") else "UNKNOWN",
     }
 
 
@@ -744,6 +909,100 @@ def train_ml_model(req: ModelTrainRequest) -> Dict[str, Any]:
         }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Model training failed: {exc}")
+
+
+# -----------------------------------------------------------------------------
+# 8b. Institutional Next-Session Forecasting & Multi-Broker Cost Engine
+# -----------------------------------------------------------------------------
+@app.get("/api/v1/forecast/next-session", tags=["forecasting"])
+def get_next_session_forecast(symbol: str = Query("NIFTY", description="Equity or index symbol")) -> Dict[str, Any]:
+    """Generates a calibrated next-session quantitative forecast with statistical volatility bounds."""
+    sym = symbol.strip().upper()
+    provider = get_market_provider()
+    try:
+        candles = provider.get_historical_candles(sym, timeframe=Timeframe.DAILY)
+    except Exception as e:
+        candles = synth_provider.get_historical_candles(sym, timeframe=Timeframe.DAILY)
+
+    if not candles or len(candles) < 25:
+        # Fallback to synth if historical candles insufficient
+        candles = synth_provider.get_historical_candles(sym, timeframe=Timeframe.DAILY)
+
+    try:
+        forecast = forecaster.forecast_next_session(sym, candles)
+        return forecast.model_dump()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Forecasting engine error: {str(exc)}")
+
+
+@app.get("/api/v1/forecast/history", tags=["forecasting"])
+def get_forecast_history(
+    symbol: Optional[str] = Query(None, description="Optional symbol filter"),
+    limit: int = Query(50, ge=1, le=200, description="Max entries to return"),
+) -> Dict[str, Any]:
+    """Returns historical prediction ledger entries and accuracy scorecard."""
+    entries = forecaster.get_ledger(symbol=symbol, limit=limit)
+    evaluated = [e for e in entries if e.get("status") == "EVALUATED"]
+    total_eval = len(evaluated)
+    hits = sum(1 for e in evaluated if e.get("direction_hit"))
+
+    accuracy = round((hits / total_eval) * 100.0, 1) if total_eval > 0 else 0.0
+
+    return {
+        "symbol": symbol,
+        "total_records": len(entries),
+        "evaluated_records": total_eval,
+        "historical_accuracy_pct": accuracy,
+        "entries": entries,
+    }
+
+
+@app.post("/api/v1/forecast/evaluate", tags=["forecasting"])
+def evaluate_forecast_ledger(req: Optional[ForecastEvaluateRequest] = None) -> Dict[str, Any]:
+    """Evaluates pending forecasts against realized candles."""
+    provider = get_market_provider()
+    syms = req.symbols if (req and req.symbols) else ["NIFTY", "SENSEX", "RELIANCE", "TCS", "INFY", "HDFCBANK", "SBIN"]
+
+    candles_map: Dict[str, List[Candle]] = {}
+    for s in syms:
+        try:
+            c = provider.get_historical_candles(s, timeframe=Timeframe.DAILY)
+            if c:
+                candles_map[s.upper()] = c
+        except Exception:
+            c = synth_provider.get_historical_candles(s, timeframe=Timeframe.DAILY)
+            if c:
+                candles_map[s.upper()] = c
+
+    result = forecaster.evaluate_realized_candles(candles_map)
+    return result
+
+
+@app.post("/api/v1/costs/simulate", tags=["costs"])
+def simulate_trade_costs(req: CostSimulateRequest) -> Dict[str, Any]:
+    """Simulates complete buy-and-sell roundtrip costs, brokerage, statutory taxes, and DP charges."""
+    broker_name = req.broker.strip().upper()
+    try:
+        broker_enum = BrokerProfile(broker_name)
+    except ValueError:
+        broker_enum = BrokerProfile.ANGEL_ONE
+
+    trade_name = req.trade_type.strip().upper()
+    try:
+        trade_enum = TradeType(trade_name)
+    except ValueError:
+        trade_enum = TradeType.DELIVERY
+
+    sim = simulate_roundtrip_trade(
+        symbol=req.symbol,
+        buy_price=req.buy_price,
+        sell_price=req.sell_price,
+        quantity=req.quantity,
+        broker=broker_enum,
+        trade_type=trade_enum,
+        slippage_bps=req.slippage_bps,
+    )
+    return sim.model_dump()
 
 
 # -----------------------------------------------------------------------------

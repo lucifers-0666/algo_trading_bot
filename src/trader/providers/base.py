@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import List, Optional, Callable, Dict, Any
 
-from trader.domain.models import Candle, Quote, Timeframe, DataSource
+from trader.domain.models import Candle, Quote, MarketDepth, Timeframe, DataSource
 
 
 class MarketDataProvider(ABC):
@@ -38,6 +38,10 @@ class MarketDataProvider(ABC):
     def get_connection_status(self) -> Dict[str, Any]:
         """Returns health, latency, connected state, and last update timestamp."""
         pass
+
+    def get_market_depth(self, symbol: str) -> MarketDepth:
+        """Fetches 5-level market depth order book. Fallback raises NotImplementedError."""
+        raise NotImplementedError(f"Market depth is not supported by {self.source_type.value}")
 
     def subscribe_live(self, symbols: List[str], callback: Callable[[Quote], None]) -> None:
         """Subscribes to real-time quote/tick streaming (optional for offline sources)."""

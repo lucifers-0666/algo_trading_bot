@@ -35,6 +35,9 @@ data/live/*
 !data/live/.gitkeep
 data/storage/*
 !data/storage/.gitkeep
+data/forecasts/*
+!data/forecasts/.gitkeep
+data/test_forecasts/
 
 # Model files & weights
 models/saved/*

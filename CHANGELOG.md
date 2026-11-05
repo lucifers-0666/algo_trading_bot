@@ -5,6 +5,33 @@ All notable changes to the Indian AI Paper Trading Platform will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-11-05
+
+### Added
+- **Angel One SmartAPI Read-Only Market Data Adapter:**
+  - Integrated SEBI-registered broker Angel One SmartAPI for ₹0 free market data, historical OHLCV candles, 5-level market depth order books, and WebSocket tick feeds.
+  - Architected strict read-only safety barrier with hard runtime assertions against broker order execution or portfolio modification.
+  - Automated Time-based One-Time Password (TOTP) generation via `pyotp` for 24-hour authenticated sessions.
+  - Pre-mapped core index tokens (NIFTY 50, SENSEX, BANKNIFTY) and liquid NSE equities.
+- **Institutional Next-Session Quantitative Forecasting:**
+  - Built dedicated `NextSessionForecaster` separating numerical statistical models from qualitative LLM reasoning.
+  - Multi-factor feature engineering: multi-horizon momentum, 14-day RSI, ATR % of close, 20d SMA distance, annualized volatility, and RVOL.
+  - Direction classification (`BULLISH`, `BEARISH`, `NEUTRAL`), calibrated drift %, and 1.1x ATR price volatility range cones.
+  - Non-ML baseline benchmarking against Zero-Return Martingale, Persistence, and Trend Following.
+  - Immutable prediction ledger (`data/forecasts/forecast_ledger.json`) tracking forward predictions and scoring realized direction hits and range containment.
+- **Multi-Broker Transaction Cost & Statutory Tax Engine:**
+  - Expanded cost modeling across verified Indian brokers: Angel One, Zerodha, Dhan, Fyers, and Flat Zero baseline.
+  - Accurate Depository Participant (DP) charges levied on delivery sell orders (Angel One: ₹23.60, Zerodha: ₹15.93, Dhan: ₹14.75).
+  - Statutory differentiation for Delivery (CNC) vs Intraday (MIS) trades for STT and Stamp Duty.
+  - Exact roundtrip breakeven exit price calculation.
+- **Streamlined React Frontend (6 Core Workspaces):**
+  - Consolidated 22 views into 6 top-level institutional workspaces: Overview, Markets, Research & AI, Strategies & Backtests, Paper Trading, Settings & System.
+  - Added sub-navigation pill bar for rapid single-click workspace switching.
+  - Built dedicated `NextSessionForecastView` with interactive universe selector, volatility range cones, and out-of-sample ledger scorecard.
+  - Added 5-level Order Book Market Depth table with bid/ask spread and microstructure imbalance meter to `StockResearchView`.
+  - Added Itemized Multi-Broker Cost Simulator to `TradingTerminalView`.
+  - Added Angel One SmartAPI credentials setup and active provider switcher to `MarketDataSettingsView`.
+
 ## [2.3.0] - 2026-11-05
 
 ### Added

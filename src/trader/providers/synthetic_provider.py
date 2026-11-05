@@ -5,7 +5,7 @@ In-memory and procedural generator implementing MarketDataProvider for testing a
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-from trader.domain.models import Candle, Quote, Timeframe, DataSource, IST
+from trader.domain.models import Candle, Quote, MarketDepth, MarketDepthLevel, Timeframe, DataSource, IST
 from trader.providers.base import MarketDataProvider
 from trader.data.synthetic import generate_synthetic_candles, DEFAULT_NSE_UNIVERSE
 
@@ -69,6 +69,39 @@ class SyntheticDataProvider(MarketDataProvider):
             volume=candles[-1].volume if candles else 500000.0,
             timestamp=self._last_update,
             source=DataSource.SYNTHETIC,
+        )
+
+    def get_market_depth(self, symbol: str) -> MarketDepth:
+        """Procedural 5-level market depth order book for testing and simulation."""
+        sym = symbol.strip().upper()
+        quote = self.get_latest_quote(sym)
+        ltp = quote.ltp
+        tick = round(max(0.05, round(ltp * 0.0005, 2)), 2)
+
+        levels: List[MarketDepthLevel] = []
+        for i in range(1, 6):
+            bid_p = round(ltp - (i * tick), 2)
+            ask_p = round(ltp + (i * tick), 2)
+            bid_q = int(500 * (6 - i) + (i * 37))
+            ask_q = int(450 * (6 - i) + (i * 41))
+            levels.append(
+                MarketDepthLevel(
+                    level=i,
+                    bid_price=bid_p,
+                    bid_quantity=bid_q,
+                    bid_orders=max(1, int(bid_q / 50)),
+                    ask_price=ask_p,
+                    ask_quantity=ask_q,
+                    ask_orders=max(1, int(ask_q / 50)),
+                )
+            )
+
+        return MarketDepth.create(
+            symbol=sym,
+            levels=levels,
+            exchange="NSE",
+            source=DataSource.SYNTHETIC,
+            timestamp=datetime.now(IST),
         )
 
     def get_connection_status(self) -> Dict[str, Any]:
