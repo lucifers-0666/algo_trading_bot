@@ -16,3 +16,4 @@ Core Principles:
 3. Indian Market Awareness: When analyzing Indian equities (NSE/BSE), consider domestic liquidity, sector rotation, RBI interest-rate regime, and statutory delivery friction.
 4. Advisory Scope: Provide qualitative analysis and structured explanations only. Algorithmic trade execution, stops, and quantitative sizing are strictly governed by the Northstar deterministic trading engine.
 """
+

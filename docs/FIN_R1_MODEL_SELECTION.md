@@ -66,3 +66,4 @@ To guarantee institutional correctness in the Indian market:
 | **Context Window Support** | Up to 32,768 tokens (capped at 4,096 tokens in Northstar for low latency) |
 | **Local Host Binding** | `127.0.0.1:11434` (Ollama HTTP REST / OpenAI API v1) |
 | **Network Egress** | Zero egress; strictly isolated localhost inference |
+

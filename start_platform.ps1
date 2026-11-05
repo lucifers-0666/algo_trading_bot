@@ -32,12 +32,22 @@ try {
         Write-Host "      [OK] Local Ollama LLM Server is active on port 11434." -ForegroundColor Green
     }
 } catch {
-    # Offline, will check if ollama command is installed
-    if (Get-Command "ollama" -ErrorAction SilentlyContinue) {
-        Write-Host "      Starting local Ollama server in background..." -ForegroundColor Yellow
-        Start-Process -FilePath "ollama" -ArgumentList "serve" -WindowStyle Hidden
-        Start-Sleep -Seconds 2
+    $OllamaRunning = $false
+}
+
+if (-not $OllamaRunning) {
+    $ollamaExe = "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
+    if (-not (Test-Path $ollamaExe)) {
+        $cmd = Get-Command "ollama" -ErrorAction SilentlyContinue
+        if ($cmd) { $ollamaExe = $cmd.Source }
+    }
+    if (Test-Path $ollamaExe) {
+        Write-Host "      Starting local Ollama server in background ($ollamaExe)..." -ForegroundColor Yellow
+        $env:OLLAMA_HOST = "127.0.0.1:11434"
+        Start-Process -FilePath $ollamaExe -ArgumentList "serve" -WindowStyle Hidden
+        Start-Sleep -Seconds 3
         $OllamaRunning = $true
+        Write-Host "      [OK] Ollama daemon started on http://127.0.0.1:11434" -ForegroundColor Green
     } else {
         Write-Host "      [INFO] Local Ollama server offline. High-performance deterministic quantitative heuristic fallback active." -ForegroundColor Cyan
     }

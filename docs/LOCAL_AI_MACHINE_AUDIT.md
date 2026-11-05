@@ -71,3 +71,4 @@ Audited via `Get-Command ollama` and standard installation paths:
 3. **Phase 4:** Pull the verified finance-specialist model checkpoint `hf.co/Mungert/Fin-R1-GGUF:Q4_K_M`.
 4. **Phase 5:** Benchmark GPU allocation on the RTX 5060 Laptop GPU (verifying that all layers offload into the 8GB VRAM).
 5. **Phase 6:** Integrate with Northstar's FastAPI backend and React workstation.
+

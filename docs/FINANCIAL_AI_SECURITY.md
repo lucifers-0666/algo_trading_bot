@@ -64,3 +64,4 @@ flowchart LR
 1. **Greedy Sampling (`temperature=0.1`):** Limits stochastic divergence and eliminates creative hallucinations.
 2. **Strict System Prompt Framing:** The system prompt explicitly limits the AI's role to objective financial analysis and capital risk enumeration.
 3. **Pydantic Schema Validation:** All model outputs are parsed into rigid Pydantic models (`NewsAnalysisResponse`, `SignalExplanationResponse`, `StockDossierResponse`). If the model fails to return valid JSON conforming to the schema, the client catches the error and activates the deterministic fallback.
+

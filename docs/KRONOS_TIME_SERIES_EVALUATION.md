@@ -51,3 +51,4 @@ Kronos-base is a specialized time-series foundation model designed for sequentia
    - Numerical indicators (RSI, ATR, SMA, Supertrend) and machine learning ranking (scikit-learn / LightGBM) continue to provide the primary quantitative signals with 100% reproducibility.
 3. **Future Kronos-Base Research Integration:**
    - Kronos-base is documented and staged as an optional secondary plugin in `src/trader/ml/timeseries/kronos.py` for offline research and backtesting, requiring explicit activation when PyTorch CUDA is initialized.
+

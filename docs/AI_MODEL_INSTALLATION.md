@@ -77,3 +77,4 @@ Northstar provides turnkey scripts under `scripts/`:
 - `scripts\stop_financial_model.ps1`: Gracefully stops the Ollama process and unloads VRAM.
 - `scripts\setup_financial_model.ps1`: Automated end-to-end download and setup script.
 - `scripts\verify_financial_model.ps1`: Comprehensive 6-test financial reasoning and GPU offload verification suite.
+

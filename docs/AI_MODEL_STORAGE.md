@@ -46,3 +46,4 @@ and blob storage pointers linking to the local GGUF layer.
 - **Fin-R1 Checkpoint Footprint:** 4.68 GB (<1.9% of free drive space).
 - **Ollama System Directory Footprint:** ~1.6 GB for runtime binaries under `%LOCALAPPDATA%\Programs\Ollama\`.
 - **Operating Margin:** Northstar can comfortably store Fin-R1 alongside multiple historical backtesting datasets and full NIFTY 500 tick logs without storage contention.
+

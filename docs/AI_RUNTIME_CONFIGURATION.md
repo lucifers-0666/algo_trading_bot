@@ -60,3 +60,4 @@ flowchart TD
 
 - **Fail-Open Strategy:** If the local model is starting up or stopped, API endpoints never return HTTP 500 errors. Instead, `LocalFinancialAIClient` seamlessly transitions into `STANDBY_HEURISTIC` mode using `EventClassifier` and deterministic technical indicators.
 - **Strict Boundary:** The AI qualitative layer can never alter trade prices, invalidation stop-loss levels, position sizes, or force order execution. All order lifecycle logic resides in `trader.core.engine`.
+

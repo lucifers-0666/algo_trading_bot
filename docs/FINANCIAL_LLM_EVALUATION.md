@@ -34,3 +34,4 @@ The financial reasoning evaluation suite assesses whether `Fin-R1` fulfills the 
 | **Capital Allocation** | Hard limits (₹10,000 total virtual capital, max 20% position size) | Discussion of diversification principles |
 | **Execution Decision** | Automated paper state machine (Pending -> Filled) | Recommendation of `APPROVED_FOR_PAPER` or `REQUIRES_MANUAL_REVIEW` |
 | **Statutory Slippage** | Formulaic calculation of STT + GST + brokerage | Explanation of frictional impact on net expectancy |
+
