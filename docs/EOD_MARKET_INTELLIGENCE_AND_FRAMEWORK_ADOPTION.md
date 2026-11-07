@@ -51,9 +51,9 @@ Projected target P&L is gross and excludes brokerage, statutory charges and slip
 
 | Framework | Useful battle-tested patterns | Constraints | Adoption decision |
 |---|---|---|---|
-| Freqtrade | Strategy lifecycle, dry-run mode, backtest export, lookahead/recursive analysis, hyperopt, cooldown/protection patterns, REST/Telegram control | Crypto-first; CCXT/exchange assumptions and GPL-3.0 licensing. Not an NSE data or Indian statutory-cost engine. | Reimplement patterns clean-room. Do not import, vendor or copy GPL code into this project. |
+| Freqtrade | Strategy lifecycle, dry-run mode, backtest export, lookahead/recursive analysis, hyperopt, cooldown/protection patterns, REST API, Telegram commands and notifications | Crypto-first; CCXT/exchange assumptions and GPL-3.0 licensing. Not an NSE data or Indian statutory-cost engine. | Reimplement patterns clean-room. Do not import, vendor or copy GPL code into this project. Telegram is useful for status/alerts, but do not expose force-buy/force-exit remote controls in this paper-only app. |
 | QuantConnect LEAN | Event-driven time slices, order lifecycle, fill models, stale-data checks, slippage interfaces, fee models, portfolio/risk models | Large C# engine and operational footprint; its default brokerage/data assumptions do not supply NSE-specific rules. Apache-2.0 permits reuse subject to notices and license terms. | Use as the reference model for our own FillModel and order-event contracts. Do not embed the full engine in this Python service initially. A separate LEAN research adapter may be evaluated later. |
-| Jesse | Python strategy interface, candle-by-candle backtesting, comprehensive reporting, fees/order-type simulation, ML dataset generation, significance and Monte Carlo analysis | Crypto-oriented data/exchange abstractions; confirm exact walk-forward functionality and current dependency/license terms before relying on a claimed built-in feature. Repository is MIT-licensed according to its public GitHub listing. | Borrow high-level reporting and statistical-validation patterns; do not adopt its exchange/runtime layer. MIT code reuse is possible only with license and copyright notices after legal review. |
+| Jesse | Python strategy interface, candle-by-candle backtesting, comprehensive reporting, fees/order-type simulation, ML dataset generation, significance and Monte Carlo analysis, risk_to_qty/size_to_qty helpers | Crypto-oriented data/exchange abstractions. Its documented position sizing uses utility helpers (risk_to_qty / size_to_qty), not a position-sizing decorator. Current repo/docs search surfaced optimization, Monte Carlo and rule-significance testing, but did not establish a first-class walk-forward validator; implement purged walk-forward validation in our own research layer. Repository is MIT-licensed. | Borrow high-level reporting, risk-based quantity helper design and statistical-validation patterns; do not adopt its exchange/runtime layer. MIT code reuse is possible only with license and copyright notices after legal review. |
 
 ### Recommended components to implement natively
 
@@ -103,3 +103,17 @@ Before showing the system's picks as actionable:
 - Report precision@K, net expectancy, drawdown, turnover, costs and candidate coverage by regime.
 - Forward paper-trade for a predeclared sample.
 - Require manual approval. This upgrade does not authorize live order routing or broker API integration.
+
+
+## 9. Upstream references reviewed
+
+- Freqtrade strategy and backtest documentation: https://www.freqtrade.io/en/stable/strategy-101/ and https://www.freqtrade.io/en/stable/backtesting/
+- Freqtrade Telegram controls: https://www.freqtrade.io/en/stable/telegram-usage/
+- Freqtrade project license: https://github.com/freqtrade/freqtrade/blob/develop/LICENSE (GPLv3 declared in project metadata).
+- LEAN fill model concepts: https://www.quantconnect.com/docs/v2/writing-algorithms/reality-modeling/trade-fills/key-concepts
+- LEAN slippage models: https://www.quantconnect.com/docs/v2/writing-algorithms/reality-modeling/slippage/supported-models
+- LEAN repository/license: https://github.com/QuantConnect/Lean (Apache-2.0).
+- Jesse repository/license and research API: https://github.com/jesse-ai/jesse and https://docs.jesse.trade/docs/research/
+- Jesse position-risk helper reference: https://github.com/jesse-ai/jesse/blob/master/jesse/mcp/resources/position_risk.md
+
+The existence of an upstream feature does not prove it is appropriate for NSE cash equities. All fill, fee, calendar, symbol, circuit and data-right assumptions must be replaced or validated for the Indian market.
