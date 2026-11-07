@@ -160,6 +160,12 @@ def test_end_of_test_open_position_is_marked_without_fictitious_exit_costs():
     assert open_trade.entry_slippage > 0.0
     assert result.metrics.total_costs_paid_inr == pytest.approx(open_trade.entry_costs)
     assert result.metrics.total_slippage_inr == pytest.approx(open_trade.entry_slippage)
+    assert result.metrics.gross_pnl_inr == pytest.approx(
+        result.metrics.net_pnl_inr + open_trade.entry_costs + open_trade.entry_slippage
+    )
+    assert result.metrics.cost_drag_pct == pytest.approx(
+        (open_trade.entry_costs + open_trade.entry_slippage) / 10000.0 * 100.0
+    )
     assert result.equity_curve[-1]["exposure"] > 0.0
     assert result.equity_curve[-1]["equity"] == pytest.approx(
         result.equity_curve[-1]["cash"] + result.equity_curve[-1]["exposure"]
