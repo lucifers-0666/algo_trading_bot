@@ -5,6 +5,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location $RepoRoot
 
 if (-not (Test-Path $UniverseCsv)) {
     throw "Missing point-in-time NIFTY 500 CSV: $UniverseCsv. Do not substitute the curated sample universe."
