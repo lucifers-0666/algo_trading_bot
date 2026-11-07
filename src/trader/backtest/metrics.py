@@ -75,8 +75,11 @@ def compute_performance_metrics(
     # Costs and Slippage aggregation
     total_costs = round(sum(t.get("costs_inr", 0.0) for t in trade_logs), 2)
     total_slippage = round(sum(t.get("slippage_inr", 0.0) for t in trade_logs), 2)
-    gross_pnl = round(net_pnl + total_costs, 2)
-    cost_drag_pct = round((total_costs / initial_capital) * 100.0, 2)
+    # Slippage is already embedded in effective fill prices and therefore in net equity.
+    # Add it back alongside fees to report pre-execution-cost gross P&L and total cost drag.
+    all_execution_costs = total_costs + total_slippage
+    gross_pnl = round(net_pnl + all_execution_costs, 2)
+    cost_drag_pct = round((all_execution_costs / initial_capital) * 100.0, 2)
 
     # Trade statistics
     closed_trades = [t for t in trade_logs if t.get("is_closed", False)]
