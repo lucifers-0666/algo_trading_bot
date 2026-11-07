@@ -131,3 +131,36 @@ def test_circuit_locked_bar_blocks_execution():
     # Entry should have been skipped because bar was untradeable circuit
     closed = [t for t in result.trade_records if t.is_closed]
     assert len(closed) == 0
+
+
+
+def test_end_of_test_open_position_is_marked_without_fictitious_exit_costs():
+    """Open holdings contribute to equity, but hypothetical exit costs are not booked."""
+    base_time = datetime(2026, 1, 1, 9, 15, tzinfo=IST)
+    candles = []
+    for i in range(54):
+        candles.append(_make_candle(base_time + timedelta(days=i), 100.0, 101.0, 99.0, 100.0))
+    candles.append(_make_candle(base_time + timedelta(days=54), 100.0, 101.0, 99.0, 100.0))
+    candles.append(_make_candle(base_time + timedelta(days=55), 100.0, 103.0, 99.5, 102.0))
+
+    strategy = MockStrategy(entry_bar_idx=55, stop_loss=95.0, target=120.0)
+    result = BacktestEngine(
+        strategy=strategy,
+        slippage_bps=10.0,
+        brokerage_flat=0.0,
+    ).run({"TEST": candles})
+
+    assert len(result.trade_records) == 1
+    open_trade = result.trade_records[0]
+    assert open_trade.is_closed is False
+    assert open_trade.exit_date is None
+    assert open_trade.exit_price is None
+    assert open_trade.exit_costs == 0.0
+    assert open_trade.entry_costs > 0.0
+    assert open_trade.entry_slippage > 0.0
+    assert result.metrics.total_costs_paid_inr == pytest.approx(open_trade.entry_costs)
+    assert result.metrics.total_slippage_inr == pytest.approx(open_trade.entry_slippage)
+    assert result.equity_curve[-1]["exposure"] > 0.0
+    assert result.equity_curve[-1]["equity"] == pytest.approx(
+        result.equity_curve[-1]["cash"] + result.equity_curve[-1]["exposure"]
+    )
