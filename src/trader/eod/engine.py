@@ -268,7 +268,7 @@ def build_eod_report(
     candidates = candidates[:max_candidates]
     return EODReport(
         session_date=session_date, next_session_plan="Conditional long setups for the next NSE session; revalidate gaps and risk before paper execution.",
-        bias=regime, universe_requested=len(stock_daily), universe_covered=len(stock_daily),
+        bias=regime, universe_requested=len(stock_daily), universe_covered=len(stock_daily) - len(rejected),
         candidates=candidates, rejected_symbols=rejected, risk_per_trade_pct=risk_per_trade_pct*100,
         virtual_equity_inr=virtual_equity_inr,
         data_warning="Coverage is only as complete as the supplied point-in-time NIFTY 500 constituent list and licensed EOD data.",
