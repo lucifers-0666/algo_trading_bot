@@ -2166,6 +2166,9 @@ tr:hover td {
 
 /* EOD Intelligence — retro-tech terminal / restrained glass surfaces */
 .eod-workspace {
+  background: #0A0D12;
+  border-radius: 8px;
+  padding: 2px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2226,7 +2229,7 @@ tr:hover td {
 .eod-risk-cap { color:#8b99a7; font-size:9px; letter-spacing:.6px; }
 .eod-risk-cap b { color:#ff6a62; margin-left:5px; }
 .eod-table-wrap { width:100%; overflow-x:auto; border:1px solid #232832; border-radius:7px; }
-.eod-table { width:100%; border-collapse:collapse; min-width:980px; text-align:left; }
+.eod-table { width:100%; border-collapse:collapse; min-width:1200px; text-align:left; }
 .eod-table th { background:#0d1219; color:#8493a2; font-size:9px; letter-spacing:.65px; padding:11px 10px; white-space:nowrap; }
 .eod-table td { border-top:1px solid #232832; padding:11px 10px; color:#cbd5df; font-size:10px; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .eod-table td strong { display:block; color:#f2f6fa; font-size:11px; }
