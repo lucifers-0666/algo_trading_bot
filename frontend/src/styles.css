@@ -2217,7 +2217,7 @@ tr:hover td {
 .eod-section-heading h2, .eod-narrative-card h2 { margin:4px 0 0; font-size:14px; color:#f1f5f9; font-weight:650; }
 .eod-section-heading h2 span { margin-left:8px; color:#00ff66; font-size:11px; }
 .eod-session-card p { color:#c0cad5; line-height:1.7; }
-.eod-session-stats { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin:14px 0; }
+.eod-session-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:14px 0; }
 .eod-session-stats > div { display:flex; flex-direction:column; gap:5px; padding:10px; border:1px solid #232832; border-radius:6px; background:rgba(10,13,18,.55); }
 .eod-session-stats strong { color:#e8eef5; font-size:12px; }
 .eod-facts { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:12px; }
