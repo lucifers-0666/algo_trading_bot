@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi.testclient import TestClient
 
 from trader.domain.models import IST, OrderSide, Candle, Timeframe
-from trader.data.synthetic import generate_synthetic_candles
+from tests.fixtures.synthetic_fixture import generate_synthetic_candles
 from trader.paper.daemon import AutonomousPaperTradingDaemon
 from trader.api.app import app
 

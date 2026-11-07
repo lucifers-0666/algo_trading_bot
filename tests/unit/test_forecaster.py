@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytest
 from trader.domain.models import Candle, DataSource, IST, Timeframe
 from trader.ml.forecaster import NextSessionForecaster, ForecastDirection, PredictionStatus
-from trader.providers.synthetic_provider import SyntheticDataProvider
+from tests.fixtures.synthetic_fixture import SyntheticDataProvider
 
 
 def test_forecaster_feature_computation():

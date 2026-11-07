@@ -3,7 +3,7 @@
 import pandas as pd
 import numpy as np
 
-from trader.data.synthetic import generate_synthetic_candles
+from tests.fixtures.synthetic_fixture import generate_synthetic_candles
 from trader.features.technical import candles_to_dataframe
 from trader.strategies.baseline import BaselineSwingStrategy
 from trader.strategies.lookahead_detector import LookaheadDetector

@@ -3,12 +3,12 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 from trader.domain.models import Candle, IST, Timeframe
-from trader.data.synthetic import generate_synthetic_candles
+from tests.fixtures.synthetic_fixture import generate_synthetic_candles
 from trader.strategies.momentum import MomentumStrategy
 from trader.strategies.breakout import DonchianBreakoutStrategy
 from trader.strategies.regime import detect_market_regime, MarketRegime
 from trader.backtest.comparison import run_strategy_comparison
-from trader.providers.synthetic_provider import SyntheticDataProvider
+from tests.fixtures.synthetic_fixture import SyntheticDataProvider
 from trader.scanner.ranking import MarketScannerEngine
 
 

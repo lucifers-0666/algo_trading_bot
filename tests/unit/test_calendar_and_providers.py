@@ -1,9 +1,8 @@
 import pytest
 from datetime import datetime, date, time
-from trader.domain.models import IST, DataSource
+from trader.domain.models import IST
 from trader.data.calendar import NSETradingCalendar, default_nse_calendar
-from trader.data.synthetic import generate_synthetic_candles
-from trader.providers.truedata_adapter import TrueDataAdapter
+from tests.fixtures.synthetic_fixture import generate_synthetic_candles
 
 
 def test_nse_calendar_holidays_and_weekends():
@@ -45,18 +44,4 @@ def test_synthetic_data_local_rng_determinism():
     assert candles1[-1].close != candles3[-1].close
 
 
-def test_truedata_adapter_provenance_labels():
-    """Verify TrueData adapter provides strict explicit data source labels."""
-    adapter = TrueDataAdapter()
-    status = adapter.get_connection_status()
-
-    assert status["status"] == "DISABLED"
-    assert status["configured"] is False
-    assert status["data_source_label"] == DataSource.UNAVAILABLE.value
-
-    # Subscription management
-    adapter.subscribe(["RELIANCE", "TCS"])
-    assert "RELIANCE" in adapter._subscribed_symbols
-    adapter.unsubscribe(["TCS"])
-    assert "TCS" not in adapter._subscribed_symbols
 

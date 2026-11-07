@@ -9,7 +9,7 @@ from datetime import datetime
 import pytest
 
 from trader.domain.models import OrderSide, OrderStatus, Timeframe
-from trader.providers.synthetic_provider import SyntheticDataProvider
+from tests.fixtures.synthetic_fixture import SyntheticDataProvider
 from trader.scanner.ranking import MarketScannerEngine
 from trader.features.technical import candles_to_dataframe, compute_all_indicators
 from trader.strategies.baseline import BaselineSwingStrategy, SignalType

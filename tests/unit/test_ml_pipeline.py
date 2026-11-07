@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trader.data.synthetic import generate_synthetic_candles
+from tests.fixtures.synthetic_fixture import generate_synthetic_candles
 from trader.ml.labels import generate_forward_labels, chronological_train_test_split
 from trader.ml.dataset import extract_features, prepare_ml_dataset, CANONICAL_FEATURE_COLUMNS
 from trader.ml.train import train_model

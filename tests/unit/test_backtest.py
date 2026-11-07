@@ -4,7 +4,7 @@ from trader.domain.models import OrderSide
 from trader.backtest.costs import calculate_trade_costs
 from trader.backtest.metrics import compute_performance_metrics
 from trader.backtest.engine import BacktestEngine
-from trader.data.synthetic import generate_synthetic_candles
+from tests.fixtures.synthetic_fixture import generate_synthetic_candles
 
 
 def test_transaction_costs_indian_equities():

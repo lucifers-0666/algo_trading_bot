@@ -1,6 +1,6 @@
 """Unit tests for Strategy Hyperparameter Optimization (Hyperopt) Runner."""
 
-from trader.data.synthetic import generate_synthetic_candles
+from tests.fixtures.synthetic_fixture import generate_synthetic_candles
 from trader.strategies.hyperopt import StrategyHyperoptRunner, default_loss_function
 
 

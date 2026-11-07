@@ -129,3 +129,4 @@ def get_settings() -> Settings:
     if _cached_settings is None:
         _cached_settings = load_settings()
     return _cached_settings
+

@@ -32,12 +32,18 @@ class FreshnessReport(BaseModel):
     latency_seconds: float = Field(default=0.0)
     last_update_ist: Optional[datetime] = None
     is_market_open: bool = False
+    bypass_cache: bool = Field(default=False, description="Forces fresh delta fetch during live market hours")
     message: str
 
 
 def is_nse_market_open(now_dt: Optional[datetime] = None) -> bool:
     """Returns True if given IST timestamp falls within Monday-Friday 09:15-15:30 IST and is not an exchange holiday."""
     return default_nse_calendar.is_market_open(now_dt)
+
+
+def should_bypass_cache_for_live_feed(now_dt: Optional[datetime] = None) -> bool:
+    """Returns True during active NSE market hours (09:15-15:30 IST, Mon-Fri) to bypass stale cache."""
+    return is_nse_market_open(now_dt)
 
 
 def evaluate_feed_freshness(
@@ -67,6 +73,7 @@ def evaluate_feed_freshness(
             latency_seconds=0.0,
             last_update_ist=now_ist,
             is_market_open=market_open,
+            bypass_cache=market_open,
             message="Synthetic test data generation active. Zero real-time exchange ticks.",
         )
     if src in ("CSV", "HISTORICAL"):
@@ -79,6 +86,7 @@ def evaluate_feed_freshness(
             latency_seconds=0.0,
             last_update_ist=last_dt,
             is_market_open=market_open,
+            bypass_cache=market_open,
             message="Offline historical CSV dataset loaded. No real-time tick streaming.",
         )
 
@@ -89,6 +97,7 @@ def evaluate_feed_freshness(
             is_actionable=False,
             latency_seconds=999999.0,
             is_market_open=market_open,
+            bypass_cache=market_open,
             message="Provider credentials unconfigured. Operating in safe standby mode.",
         )
     if is_connected is False:
@@ -97,6 +106,7 @@ def evaluate_feed_freshness(
             is_actionable=False,
             latency_seconds=999999.0,
             is_market_open=market_open,
+            bypass_cache=market_open,
             message="Data feed disconnected. Reconnecting to live market exchange stream.",
         )
     if src in ("UNAVAILABLE", "ERROR"):
@@ -105,6 +115,7 @@ def evaluate_feed_freshness(
             is_actionable=False,
             latency_seconds=999999.0,
             is_market_open=market_open,
+            bypass_cache=market_open,
             message=f"Data feed source is {src}. Live trading halted.",
         )
 
@@ -116,6 +127,7 @@ def evaluate_feed_freshness(
                 is_actionable=False,
                 latency_seconds=999999.0,
                 is_market_open=market_open,
+                bypass_cache=True,
                 message="Feed disconnected: No update timestamp recorded during active market session.",
             )
         else:
@@ -124,6 +136,7 @@ def evaluate_feed_freshness(
                 is_actionable=True,
                 latency_seconds=0.0,
                 is_market_open=market_open,
+                bypass_cache=False,
                 message="Market closed. EOD/offline analysis permitted.",
             )
 
@@ -142,6 +155,7 @@ def evaluate_feed_freshness(
                 latency_seconds=latency,
                 last_update_ist=last_update_ist,
                 is_market_open=market_open,
+                bypass_cache=True,
                 message=f"STALE FEED: Last tick was {latency:.1f}s ago (> {freshness_threshold_seconds}s limit). Trading halted.",
             )
         return FreshnessReport(
@@ -150,6 +164,7 @@ def evaluate_feed_freshness(
             latency_seconds=latency,
             last_update_ist=last_update_ist,
             is_market_open=market_open,
+            bypass_cache=True,
             message=f"Feed healthy. Latency: {latency:.1f}s.",
         )
     else:
@@ -159,6 +174,7 @@ def evaluate_feed_freshness(
             latency_seconds=latency,
             last_update_ist=last_update_ist,
             is_market_open=market_open,
+            bypass_cache=False,
             message="Market currently closed. Off-hours research & backtesting active.",
         )
 

@@ -22,7 +22,6 @@ from rich.table import Table
 from trader.domain.models import IST, OrderSide, Timeframe
 from trader.data.normalizer import normalize_row_to_candle
 from trader.data.validation import validate_candle_sequence
-from trader.providers.synthetic_provider import SyntheticDataProvider
 from trader.providers.csv_provider import CSVDataProvider
 from trader.scanner.ranking import MarketScannerEngine
 from trader.strategies.baseline import BaselineSwingStrategy
@@ -51,7 +50,7 @@ def cmd_validate_data(args):
 
 def cmd_scan(args):
     """Runs market scanners and displays candidates."""
-    provider = SyntheticDataProvider(seed=42)
+    provider = CSVDataProvider()
     scanner = MarketScannerEngine(provider=provider)
 
     table = Table(title=f"NSE Market Scanner — Top Gainers & Momentum")
@@ -81,7 +80,7 @@ def cmd_scan(args):
 def cmd_backtest(args):
     """Executes chronological event-driven backtesting."""
     console.print("[cyan]Initializing historical backtest engine with Indian transaction costs...[/cyan]")
-    provider = SyntheticDataProvider(seed=42)
+    provider = CSVDataProvider()
     symbols = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "SBIN"]
     candles_map = {s: provider.get_historical_candles(s) for s in symbols}
 
@@ -109,7 +108,7 @@ def cmd_backtest(args):
 def cmd_train(args):
     """Trains a walk-forward model."""
     console.print(f"[cyan]Generating features and training {args.model}...[/cyan]")
-    provider = SyntheticDataProvider(seed=42)
+    provider = CSVDataProvider()
     candles = provider.get_historical_candles(args.symbol)
     dataset, feats = prepare_ml_dataset(candles, horizon_bars=5)
 

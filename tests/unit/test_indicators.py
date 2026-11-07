@@ -13,7 +13,7 @@ from trader.features.technical import (
     compute_all_indicators,
     candles_to_dataframe,
 )
-from trader.data.synthetic import generate_synthetic_candles
+from tests.fixtures.synthetic_fixture import generate_synthetic_candles
 
 
 def test_sma_and_ema_calculation():

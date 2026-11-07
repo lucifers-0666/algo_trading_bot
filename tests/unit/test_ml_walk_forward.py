@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 from datetime import datetime, timedelta
 
-from trader.data.synthetic import generate_synthetic_candles
+from tests.fixtures.synthetic_fixture import generate_synthetic_candles
 from trader.features.technical import candles_to_dataframe, compute_all_indicators
 from trader.ml.dataset import extract_features
 from trader.ml.labels import generate_forward_labels, generate_walk_forward_splits

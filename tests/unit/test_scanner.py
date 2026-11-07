@@ -1,6 +1,6 @@
 """Unit tests for Stock Scanner Engine."""
 
-from trader.providers.synthetic_provider import SyntheticDataProvider
+from tests.fixtures.synthetic_fixture import SyntheticDataProvider
 from trader.scanner.ranking import MarketScannerEngine
 
 
