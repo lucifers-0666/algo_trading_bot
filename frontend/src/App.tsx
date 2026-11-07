@@ -53,6 +53,7 @@ import { AuditLogsView } from "./views/AuditLogsView";
 import { MarketDataSettingsView } from "./views/MarketDataSettingsView";
 import { SystemSettingsView } from "./views/SystemSettingsView";
 import { NextSessionForecastView } from "./views/NextSessionForecastView";
+import { EodMarketIntelligenceView } from "./views/EodMarketIntelligenceView";
 
 export type PageKey =
   | "Overview"
@@ -61,6 +62,7 @@ export type PageKey =
   | "Stock research"
   | "Instrument master"
   | "Next-session forecasting"
+  | "EOD Market intelligence"
   | "Local financial AI"
   | "ML research lab"
   | "Model registry"
@@ -130,6 +132,12 @@ const navigation: NavGroup[] = [
     ],
   },
   {
+    group: "5. EOD INTELLIGENCE",
+    items: [
+      { label: "EOD Market intelligence", icon: Activity },
+    ],
+  },
+  {
     group: "6. SETTINGS & SYSTEM",
     items: [
       { label: "Market data & feeds", icon: Database },
@@ -181,6 +189,7 @@ export default function App() {
       "Instrument master": "Authoritative instrument master records, lot sizing, and tick specifications.",
       "Stock research": "High-density technical analysis charts, indicators, and market regime classification.",
       "Next-session forecasting": "Ensemble econometric & statistical model forecasting next-session direction, returns %, and volatility range cones.",
+      "EOD Market intelligence": "End-of-session NSE regime analysis, relative-strength screening, ATR risk plans and next-open paper review.",
       "Strategy lab": "Configure quantitative trading rules and review look-ahead bias prevention.",
       "Lookahead & Hyperopt": "Strategy audit verifying 0% future data leakage and systematic Sortino/Calmar parameter optimization.",
       "ML research lab": "Train chronological machine-learning models with purge gaps and zero label leakage.",
