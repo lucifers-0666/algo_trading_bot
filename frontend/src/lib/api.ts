@@ -36,6 +36,7 @@ import type {
   NextSessionForecast,
   ForecastHistoryResponse,
   RoundtripSimulation,
+  EODReportEnvelope,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
@@ -475,4 +476,9 @@ export function simulateTradeCosts(
     body: JSON.stringify(payload),
     signal,
   });
+}
+
+
+export function getLatestEodReport(signal?: AbortSignal): Promise<EODReportEnvelope> {
+  return fetchJson<EODReportEnvelope>("/v1/eod/latest", { method: "GET", signal });
 }
