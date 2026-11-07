@@ -122,7 +122,7 @@ const navigation: NavGroup[] = [
     ],
   },
   {
-    group: "5. PAPER TRADING",
+    group: "6. PAPER TRADING",
     items: [
       { label: "Trading terminal", icon: ShoppingCart },
       { label: "Auto-trading bot", icon: Bot },
@@ -138,7 +138,7 @@ const navigation: NavGroup[] = [
     ],
   },
   {
-    group: "6. SETTINGS & SYSTEM",
+    group: "7. SETTINGS & SYSTEM",
     items: [
       { label: "Market data & feeds", icon: Database },
       { label: "Risk management", icon: ShieldCheck },
