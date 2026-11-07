@@ -650,3 +650,63 @@ export interface RoundtripSimulation {
   buy_costs: TradeCostBreakdown;
   sell_costs: TradeCostBreakdown;
 }
+
+
+export interface EODCandidate {
+  symbol: string;
+  session_date: string;
+  setup_pattern: string;
+  relative_strength_20d: number;
+  relative_strength_60d: number;
+  ema20: number;
+  ema50: number;
+  atr14: number;
+  rvol20: number;
+  trigger_price: number;
+  stop_loss: number;
+  target_1: number;
+  target_2: number;
+  quantity: number;
+  risk_budget_inr: number;
+  planned_risk_inr: number;
+  capital_required_inr: number;
+  projected_pnl_target_1_inr: number;
+  projected_pnl_target_2_inr: number;
+  rationale_facts: string[];
+  llm_narrative: string[];
+  status: string;
+}
+
+export interface EODReport {
+  session_date: string;
+  next_session_plan: string;
+  bias: {
+    bias: "Bullish Trend" | "Mean-Reverting/Chop" | "Risk-Off";
+    nifty_close: number;
+    adx_14: number;
+    sma20_slope_pct: number;
+    sma50_slope_pct: number;
+    india_vix: number;
+    positive_sector_count: number;
+    sector_count: number;
+    reasons: string[];
+  };
+  universe_requested: number;
+  universe_covered: number;
+  candidates: EODCandidate[];
+  rejected_symbols: Record<string, string>;
+  risk_per_trade_pct: number;
+  virtual_equity_inr: number;
+  data_warning?: string | null;
+}
+
+export interface EODReportEnvelope {
+  generated_at_ist: string;
+  provider: string;
+  data_sources: string[];
+  universe_version: string;
+  universe_symbols_requested: number;
+  report: EODReport;
+  execution_mode: "RESEARCH_ONLY_PENDING_NEXT_SESSION_REVALIDATION";
+  live_order_routing_enabled: false;
+}
