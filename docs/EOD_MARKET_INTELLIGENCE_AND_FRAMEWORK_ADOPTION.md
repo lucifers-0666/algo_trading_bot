@@ -41,11 +41,11 @@ For a long setup, based only on the completed session:
 - Trigger: prior completed-session high + 0.10 * ATR(14), rounded to that security's current monthly NSE tick size.
 - Stop: trigger - 1.50 * ATR(14), rounded to the same tick size.
 - R = trigger - stop; Target 1 = trigger + 2R; Target 2 = trigger + 3R; both targets rounded to the same tick size.
-- Risk budget = current virtual equity * 0.005.
+- Risk budget = current virtual equity * 0.005. Planned stop-out risk includes modeled entry/exit slippage, brokerage and statutory charges using the selected delivery broker profile.
 - Quantity = min(floor(risk_budget / (trigger - stop)), floor(max_capital_fraction * equity / trigger)).
 - Reject zero quantity, invalid price geometry, stale/incomplete data, Risk-Off regime, and risk greater than 0.5%.
 
-Projected target P&L is gross and excludes brokerage, statutory charges and slippage until the broker-specific round-trip cost model is applied. The final pre-trade assessment must use the actual approved quantity and adverse gap-aware execution price.
+Both gross and net target P&L are calculated. Net P&L and the 0.5% stop-risk check use the selected broker's delivery fee model, including DP charges where configured. The scheduled PowerShell job defaults to ANGEL_ONE; change the profile only after verifying the user's actual broker tariff. Groww is not currently represented in the broker enum and must not be approximated as Angel One. The final pre-trade assessment must use the actual approved quantity and adverse gap-aware execution price.
 
 ## 4. Framework evaluation and adoption policy
 
