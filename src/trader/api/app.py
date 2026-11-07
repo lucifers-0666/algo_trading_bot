@@ -1467,6 +1467,8 @@ def run_eod_analysis(req: EODRunRequest) -> Dict[str, Any]:
 
     report.universe_requested = len(symbols)
     report.universe_covered = len(stock_frames)
+    if ACTIVE_DATA_PROVIDER == "yfinance":
+        report.data_warning = (report.data_warning or "") + " YFinance is a research source; provider entitlement, corporate-action adjustments and publication latency are not verified by this application."
     report.rejected_symbols.update(rejected_loads)
     if rejected_loads:
         report.data_warning = (report.data_warning or "") + f" {len(rejected_loads)} symbols lacked usable history and were excluded."
