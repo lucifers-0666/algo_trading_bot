@@ -65,7 +65,11 @@ def test_candidate_quantity_obeys_half_percent_risk_and_capital():
         for level in (candidate.trigger_price, candidate.stop_loss, candidate.target_1, candidate.target_2):
             assert level / candidate.tick_size == pytest.approx(round(level / candidate.tick_size))
         assert candidate.planned_risk_inr <= 50.0
+        assert candidate.planned_risk_inr <= candidate.risk_budget_inr
+        assert candidate.capital_required_inr > candidate.quantity * candidate.trigger_price
         assert candidate.capital_required_inr <= 5_000.0
+        assert candidate.projected_net_pnl_target_1_inr < candidate.projected_pnl_target_1_inr
+        assert candidate.projected_net_pnl_target_2_inr < candidate.projected_pnl_target_2_inr
         assert candidate.target_1 == pytest.approx(candidate.trigger_price + 2 * (candidate.trigger_price-candidate.stop_loss), abs=0.06)
         assert candidate.target_2 == pytest.approx(candidate.trigger_price + 3 * (candidate.trigger_price-candidate.stop_loss), abs=0.06)
     else:
