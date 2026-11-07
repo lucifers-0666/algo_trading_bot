@@ -65,6 +65,8 @@ from trader.paper.accounting import PortfolioAccountant
 from trader.paper.broker import VirtualPaperBroker
 from trader.providers import CSVDataProvider, YFinanceAdapter, NSELiveAdapter
 from trader.ml.forecaster import NextSessionForecaster, NextSessionForecast
+from trader.eod.engine import build_eod_report
+from trader.eod.ollama import explain_candidate
 from trader.backtest.costs import (
     simulate_roundtrip_trade,
     calculate_trade_costs,
@@ -106,6 +108,7 @@ from trader.api.schemas import (
     CostSimulateRequest,
     ForecastEvaluateRequest,
     TradingViewWebhookPayload,
+    EODRunRequest,
 )
 
 app = FastAPI(
@@ -1341,3 +1344,101 @@ def config_bot(force_market_open: Optional[bool] = Body(None), interval: Optiona
     if interval is not None and interval >= 5:
         auto_trader.scan_interval_seconds = interval
     return auto_trader.get_status()
+
+
+# -----------------------------------------------------------------------------
+# 8c. End-of-Session market intelligence (research + conditional setups only)
+# -----------------------------------------------------------------------------
+EOD_REPORT_DIR = Path("data/reports/eod")
+
+
+@app.post("/api/v1/eod/run", tags=["eod"], dependencies=[Depends(verify_api_token)])
+def run_eod_analysis(req: EODRunRequest) -> Dict[str, Any]:
+    """Build a deterministic EOD report from an explicit point-in-time universe.
+
+    No broker order is submitted. The caller must supply the NIFTY 500 constituent
+    snapshot/version; the service will not silently substitute the small curated list.
+    """
+    provider = get_market_provider()
+    symbols = sorted({s.strip().upper() for s in req.universe_symbols if s.strip()})
+    if not symbols:
+        raise HTTPException(status_code=422, detail="The supplied universe contains no valid symbols.")
+
+    source_labels: set[str] = set()
+
+    def load_daily(symbol: str) -> pd.DataFrame:
+        try:
+            candles = provider.get_historical_candles(symbol, timeframe=Timeframe.DAILY)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Historical data provider failed for {symbol}: {exc}")
+        if not candles or len(candles) < 61:
+            raise HTTPException(status_code=422, detail=f"{symbol}: at least 61 daily candles are required.")
+        labels = {c.source.value for c in candles[-61:]}
+        if labels.intersection({"SYNTHETIC", "UNAVAILABLE", "STALE", "ERROR"}):
+            raise HTTPException(status_code=422, detail=f"{symbol}: synthetic, stale or unavailable data cannot produce EOD candidates.")
+        source_labels.update(labels)
+        return candles_to_dataframe(candles)
+
+    nifty = load_daily(req.nifty_symbol)
+    vix = load_daily(req.india_vix_symbol)
+    sectors = {name: load_daily(symbol) for name, symbol in req.sector_index_symbols.items()}
+    stock_frames: Dict[str, pd.DataFrame] = {}
+    rejected_loads: Dict[str, str] = {}
+    for symbol in symbols:
+        try:
+            stock_frames[symbol] = load_daily(symbol)
+        except HTTPException as exc:
+            rejected_loads[symbol] = str(exc.detail)
+
+    if not stock_frames:
+        raise HTTPException(status_code=422, detail="No eligible stock history could be loaded.")
+
+    try:
+        report = build_eod_report(
+            nifty_daily=nifty,
+            sector_indices=sectors,
+            india_vix_daily=vix,
+            stock_daily=stock_frames,
+            virtual_equity_inr=accountant.total_equity,
+            risk_per_trade_pct=0.005,
+            max_candidates=req.max_candidates,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"EOD analysis rejected invalid/incomplete data: {exc}")
+
+    report.rejected_symbols.update(rejected_loads)
+    if req.generate_ollama_narratives:
+        for candidate in report.candidates:
+            try:
+                candidate.llm_narrative = explain_candidate(candidate, report.bias)
+            except Exception as exc:
+                logger.warning("Ollama narrative unavailable for %s: %s", candidate.symbol, exc)
+                candidate.llm_narrative = ["Local narrative unavailable; numeric setup remains deterministic.", "Review the displayed indicators and source data.", "No AI-generated trade levels or order instructions were used."]
+
+    envelope = {
+        "generated_at_ist": datetime.now(IST).isoformat(),
+        "provider": ACTIVE_DATA_PROVIDER,
+        "data_sources": sorted(source_labels),
+        "universe_version": req.universe_version,
+        "universe_symbols_requested": len(symbols),
+        "report": report.model_dump(mode="json"),
+        "execution_mode": "RESEARCH_ONLY_PENDING_NEXT_SESSION_REVALIDATION",
+        "live_order_routing_enabled": False,
+    }
+    EOD_REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    report_path = EOD_REPORT_DIR / f"{report.session_date}.json"
+    report_path.write_text(json.dumps(envelope, indent=2), encoding="utf-8")
+    (EOD_REPORT_DIR / "latest.json").write_text(json.dumps(envelope, indent=2), encoding="utf-8")
+    return envelope
+
+
+@app.get("/api/v1/eod/latest", tags=["eod"], dependencies=[Depends(verify_localhost)])
+def get_latest_eod_report() -> Dict[str, Any]:
+    """Return the latest saved EOD research report, if one exists."""
+    report_path = EOD_REPORT_DIR / "latest.json"
+    if not report_path.exists():
+        raise HTTPException(status_code=404, detail="No EOD report has been generated yet.")
+    try:
+        return json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail=f"Saved EOD report is unreadable: {exc}")
