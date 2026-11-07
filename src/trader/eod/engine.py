@@ -303,6 +303,7 @@ def build_eod_report(
                 sell_stop_cost = calculate_trade_costs(
                     side=OrderSide.SELL, price=stop, quantity=quantity,
                     brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                    broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
                 )
                 planned_risk = round(
                     quantity * (buy_cost.effective_price - sell_stop_cost.effective_price)
@@ -323,10 +324,12 @@ def build_eod_report(
             sell_target1_cost = calculate_trade_costs(
                 side=OrderSide.SELL, price=target1, quantity=quantity,
                 brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
             )
             sell_target2_cost = calculate_trade_costs(
                 side=OrderSide.SELL, price=target2, quantity=quantity,
                 brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
             )
             net_target1 = round(sell_target1_cost.net_trade_amount - buy_cost.net_trade_amount, 2)
             net_target2 = round(sell_target2_cost.net_trade_amount - buy_cost.net_trade_amount, 2)
