@@ -99,3 +99,30 @@ def test_ollama_prompt_does_not_delegate_numeric_trade_levels():
         prompt = ollama_narrative_prompt(report.candidates[0], report.bias)
         assert "Do not alter entry, stop, targets, quantity, or risk" in prompt
         assert "exactly three" in prompt
+
+
+
+def test_missing_sector_confirmation_never_labels_bullish():
+    nifty, _, vix, _ = bullish_inputs()
+    result = classify_eod_regime(nifty, {}, vix)
+    assert result.bias == EODBias.MEAN_REVERTING
+    assert result.sector_count == 0
+
+
+def test_vix_session_mismatch_is_rejected():
+    nifty, sectors, vix, _ = bullish_inputs()
+    vix["timestamp"] = vix["timestamp"] + pd.Timedelta(days=1)
+    with pytest.raises(ValueError, match="session does not match"):
+        classify_eod_regime(nifty, sectors, vix)
+
+
+def test_risk_configuration_cannot_exceed_half_percent():
+    nifty, sectors, vix, stocks = bullish_inputs()
+    with pytest.raises(ValueError, match="0.5%"):
+        build_eod_report(
+            nifty, sectors, vix, stocks,
+            risk_per_trade_pct=0.006,
+            min_relative_strength_20d=-1.0,
+            min_relative_strength_60d=-1.0,
+            min_avg_turnover_inr=1,
+        )
