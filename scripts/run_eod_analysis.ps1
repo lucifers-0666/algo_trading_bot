@@ -18,13 +18,22 @@ if ($UniverseVersion -eq "nifty500-current") {
 }
 
 $rows = Import-Csv -Path $UniverseCsv
-if (-not $rows -or -not ($rows[0].PSObject.Properties.Name -contains "symbol")) {
-    throw "Universe CSV must contain a 'symbol' column."
+if (-not $rows -or
+    -not ($rows[0].PSObject.Properties.Name -contains "symbol") -or
+    -not ($rows[0].PSObject.Properties.Name -contains "tick_size")) {
+    throw "Universe CSV must contain both 'symbol' and current monthly 'tick_size' columns."
 }
 
-$symbols = @($rows | ForEach-Object { ([string]$_.symbol).Trim().ToUpperInvariant() } |
-    Where-Object { $_ -match '^[A-Z0-9&-]{1,30}$' } |
-    Sort-Object -Unique)
+$tickSizeBySymbol = @{}
+foreach ($row in $rows) {
+    $symbol = ([string]$row.symbol).Trim().ToUpperInvariant()
+    if ($symbol -match '^[A-Z0-9&-]{1,30}$') {
+        $tickSize = [double]::Parse([string]$row.tick_size, [Globalization.CultureInfo]::InvariantCulture)
+        if ($tickSize -le 0) { throw "Invalid tick_size for $symbol" }
+        $tickSizeBySymbol[$symbol] = $tickSize
+    }
+}
+$symbols = @($tickSizeBySymbol.Keys | Sort-Object)
 
 if ($symbols.Count -lt 450 -or $symbols.Count -gt 500) {
     throw "Expected 450-500 valid constituents in the point-in-time NIFTY 500 file; found $($symbols.Count)."
@@ -33,6 +42,8 @@ if ($symbols.Count -lt 450 -or $symbols.Count -gt 500) {
 $payload = @{
     universe_symbols = $symbols
     universe_version = $UniverseVersion
+    tick_size_by_symbol = $tickSizeBySymbol
+    broker_profile = "ANGEL_ONE"
     nifty_symbol = "^NSEI"
     india_vix_symbol = "^INDIAVIX"
     sector_index_symbols = @{

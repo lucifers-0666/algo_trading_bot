@@ -661,6 +661,7 @@ export interface EODCandidate {
   ema20: number;
   ema50: number;
   atr14: number;
+  tick_size: number;
   rvol20: number;
   trigger_price: number;
   stop_loss: number;
@@ -672,6 +673,8 @@ export interface EODCandidate {
   capital_required_inr: number;
   projected_pnl_target_1_inr: number;
   projected_pnl_target_2_inr: number;
+  projected_net_pnl_target_1_inr: number;
+  projected_net_pnl_target_2_inr: number;
   rationale_facts: string[];
   llm_narrative: string[];
   status: string;
@@ -697,6 +700,7 @@ export interface EODReport {
   rejected_symbols: Record<string, string>;
   risk_per_trade_pct: number;
   virtual_equity_inr: number;
+  broker_profile: string;
   advancers: number;
   decliners: number;
   unchanged: number;

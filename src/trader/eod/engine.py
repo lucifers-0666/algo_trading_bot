@@ -14,6 +14,9 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
 
+from trader.domain.models import OrderSide
+from trader.backtest.costs import calculate_trade_costs, BrokerProfile, TradeType
+
 
 class EODBias(str, Enum):
     BULLISH_TREND = "Bullish Trend"
@@ -54,6 +57,8 @@ class EODCandidate(BaseModel):
     capital_required_inr: float
     projected_pnl_target_1_inr: float
     projected_pnl_target_2_inr: float
+    projected_net_pnl_target_1_inr: float
+    projected_net_pnl_target_2_inr: float
     rationale_facts: List[str] = Field(default_factory=list)
     llm_narrative: List[str] = Field(default_factory=list)
     status: str = "PENDING_REVIEW"
@@ -69,6 +74,7 @@ class EODReport(BaseModel):
     rejected_symbols: Dict[str, str] = Field(default_factory=dict)
     risk_per_trade_pct: float = 0.5
     virtual_equity_inr: float
+    broker_profile: str = "ANGEL_ONE"
     advancers: int = 0
     decliners: int = 0
     unchanged: int = 0
@@ -207,6 +213,9 @@ def build_eod_report(
     min_avg_turnover_inr: float = 20_000_000.0,
     max_candidates: int = 20,
     tick_size_by_symbol: Optional[Mapping[str, float]] = None,
+    brokerage_flat_inr: float = 20.0,
+    slippage_bps: float = 10.0,
+    broker_profile: BrokerProfile = BrokerProfile.ANGEL_ONE,
 ) -> EODReport:
     """Create next-session conditional setups from completed daily candles only.
 
@@ -279,20 +288,65 @@ def build_eod_report(
             qty_by_risk = floor(risk_budget / one_r)
             qty_by_capital = floor((virtual_equity_inr * max_capital_fraction_per_candidate) / trigger)
             quantity = min(qty_by_risk, qty_by_capital)
-            if quantity < 1:
-                raise ValueError("one share exceeds risk or capital budget")
-            planned_risk = round(quantity * one_r, 2)
-            if planned_risk > risk_budget + 1e-8:
-                raise ValueError("planned risk exceeds 0.5% equity cap")
+
+            # Enforce the 0.5% cap on the estimated stop-out loss INCLUDING
+            # entry/exit slippage and brokerage/statutory charges, not just ATR distance.
+            buy_cost = sell_stop_cost = None
+            planned_risk = 0.0
+            capital_required = 0.0
+            while quantity > 0:
+                buy_cost = calculate_trade_costs(
+                    side=OrderSide.BUY, price=trigger, quantity=quantity,
+                    brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                    broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
+                )
+                sell_stop_cost = calculate_trade_costs(
+                    side=OrderSide.SELL, price=stop, quantity=quantity,
+                    brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                    broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
+                )
+                planned_risk = round(
+                    quantity * (buy_cost.effective_price - sell_stop_cost.effective_price)
+                    + buy_cost.total_costs_inr + sell_stop_cost.total_costs_inr, 2
+                )
+                capital_required = round(buy_cost.net_trade_amount, 2)
+                if planned_risk <= risk_budget + 1e-8 and capital_required <= virtual_equity_inr * max_capital_fraction_per_candidate:
+                    break
+                quantity -= 1
+            if quantity < 1 or buy_cost is None or sell_stop_cost is None:
+                raise ValueError("one share exceeds 0.5% risk budget after estimated fees/slippage or capital cap")
+
+            buy_cost = calculate_trade_costs(
+                side=OrderSide.BUY, price=trigger, quantity=quantity,
+                brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
+            )
+            sell_target1_cost = calculate_trade_costs(
+                side=OrderSide.SELL, price=target1, quantity=quantity,
+                brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
+            )
+            sell_target2_cost = calculate_trade_costs(
+                side=OrderSide.SELL, price=target2, quantity=quantity,
+                brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
+            )
+            net_target1 = round(sell_target1_cost.net_trade_amount - buy_cost.net_trade_amount, 2)
+            net_target2 = round(sell_target2_cost.net_trade_amount - buy_cost.net_trade_amount, 2)
+            if net_target2 <= 0:
+                raise ValueError("estimated round-trip costs erase the projected 3R reward")
             candidates.append(EODCandidate(
                 symbol=symbol, session_date=session_date, setup_pattern=pattern,
                 relative_strength_20d=round(rs20 * 100, 2), relative_strength_60d=round(rs60 * 100, 2),
                 ema20=round(ema20, 2), ema50=round(ema50, 2), atr14=round(atr, 2), tick_size=tick_size, rvol20=round(rvol, 2),
                 trigger_price=trigger, stop_loss=stop, target_1=target1, target_2=target2,
                 quantity=quantity, risk_budget_inr=round(risk_budget, 2),
-                planned_risk_inr=planned_risk, capital_required_inr=round(quantity * trigger, 2),
+                planned_risk_inr=planned_risk, capital_required_inr=capital_required,
                 projected_pnl_target_1_inr=round(quantity * (target1-trigger), 2),
                 projected_pnl_target_2_inr=round(quantity * (target2-trigger), 2),
+                projected_net_pnl_target_1_inr=net_target1,
+                projected_net_pnl_target_2_inr=net_target2,
+                status="PENDING_REVIEW" if regime.bias == EODBias.BULLISH_TREND else "WATCH_ONLY_REGIME_CHOP",
                 rationale_facts=[
                     f"{pattern.replace('_', ' ')} with close {close:.2f} near EMA support",
                     f"Relative strength vs NIFTY: 20-session {rs20*100:.2f}%, 60-session {rs60*100:.2f}%",
@@ -308,6 +362,7 @@ def build_eod_report(
         bias=regime, universe_requested=len(stock_daily), universe_covered=len(stock_daily),
         candidates=candidates, rejected_symbols=rejected, risk_per_trade_pct=risk_per_trade_pct*100,
         virtual_equity_inr=virtual_equity_inr,
+        broker_profile=broker_profile.value,
         advancers=advancers, decliners=decliners, unchanged=unchanged,
         advance_decline_ratio=round(advancers / decliners, 3) if decliners else None,
         market_breadth_pct=round(100 * advancers / max(1, advancers + decliners + unchanged), 2),

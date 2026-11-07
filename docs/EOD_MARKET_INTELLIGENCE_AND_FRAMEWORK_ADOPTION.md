@@ -13,7 +13,7 @@ Run after the NSE regular session has completed and the daily candle provider ha
 4. Classify the broad regime using NIFTY ADX(14), 20/50 EMA slopes, NIFTY close/EMA alignment, India VIX and sector-index breadth.
 5. Screen each eligible stock for 20/50 EMA pullback, 20-session relative volume and average traded value.
 6. Rank by 20/60-session relative strength versus NIFTY 50.
-7. Calculate conditional breakout trigger, ATR stop, 2R/3R targets and quantity. Round to instrument tick size in production (the current pure engine uses ₹0.05 until instrument metadata is injected).
+7. Calculate conditional breakout trigger, ATR stop, 2R/3R targets and quantity. Round trigger, stop and targets to the per-symbol monthly NSE tick size. The API refuses to publish candidates if the current tick-size map is missing for any universe symbol; direct unit-test calls may use the engine's ₹0.05 fallback.
 8. Persist an immutable EOD report with source and universe versions.
 9. Ask local Ollama for exactly three explanatory bullets using the precomputed facts. Reject malformed output; never allow it to modify levels or quantity.
 10. Display candidates for human review. At the next open, refresh prices and feed health, check gaps, stop distance, cash, exposure, kill switch and the 0.5% risk cap again before creating a paper fill.
@@ -38,14 +38,14 @@ For a long setup, based only on the completed session:
 - Pullback: close is within configured tolerance (initially 1.5%) of EMA20 or EMA50 and remains above EMA50.
 - Volume confirmation: current completed-session volume / 20-session average volume >= 1.20.
 - Liquidity: 20-session average traded value >= configured floor (initially ₹2 crore; validate against point-in-time universe and execution capacity).
-- Trigger: prior completed-session high + 0.10 * ATR(14), rounded to tick size.
-- Stop: trigger - 1.50 * ATR(14), rounded to tick size.
-- R = trigger - stop; Target 1 = trigger + 2R; Target 2 = trigger + 3R.
-- Risk budget = current virtual equity * 0.005.
+- Trigger: prior completed-session high + 0.10 * ATR(14), rounded to that security's current monthly NSE tick size.
+- Stop: trigger - 1.50 * ATR(14), rounded to the same tick size.
+- R = trigger - stop; Target 1 = trigger + 2R; Target 2 = trigger + 3R; both targets rounded to the same tick size.
+- Risk budget = current virtual equity * 0.005. Planned stop-out risk includes modeled entry/exit slippage, brokerage and statutory charges using the selected delivery broker profile.
 - Quantity = min(floor(risk_budget / (trigger - stop)), floor(max_capital_fraction * equity / trigger)).
 - Reject zero quantity, invalid price geometry, stale/incomplete data, Risk-Off regime, and risk greater than 0.5%.
 
-Projected target P&L is gross and excludes brokerage, statutory charges and slippage until the broker-specific round-trip cost model is applied. The final pre-trade assessment must use the actual approved quantity and adverse gap-aware execution price.
+Both gross and net target P&L are calculated. Net P&L and the 0.5% stop-risk check use the selected broker's delivery fee model, including DP charges where configured. The scheduled PowerShell job defaults to ANGEL_ONE; change the profile only after verifying the user's actual broker tariff. Groww is not currently represented in the broker enum and must not be approximated as Angel One. The final pre-trade assessment must use the actual approved quantity and adverse gap-aware execution price.
 
 ## 4. Framework evaluation and adoption policy
 
@@ -117,3 +117,8 @@ Before showing the system's picks as actionable:
 - Jesse position-risk helper reference: https://github.com/jesse-ai/jesse/blob/master/jesse/mcp/resources/position_risk.md
 
 The existence of an upstream feature does not prove it is appropriate for NSE cash equities. All fill, fee, calendar, symbol, circuit and data-right assumptions must be replaced or validated for the Indian market.
+
+
+### NSE tick-size provenance
+
+NSE circular NSE/CMTR/67133 (13 March 2025) defines price-linked equity tick sizes and monthly review; the current applicable tick size must be loaded per security and effective month. See https://nsearchives.nseindia.com/content/circulars/CMTR67133.pdf. Do not infer it from the current price intraday or hard-code one universal value.

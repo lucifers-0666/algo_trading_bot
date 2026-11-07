@@ -419,7 +419,7 @@ export default function App() {
             {activePage === "Risk management" && <RiskManagementView onNavigate={handleNavigate} />}
             {activePage === "Audit logs" && <AuditLogsView onNavigate={handleNavigate} />}
             {activePage === "Market data & feeds" && (
-              <MarketDataSettingsView onNavigate={handleNavigate} />
+              <MarketDataSettingsView />
             )}
             {activePage === "System settings" && <SystemSettingsView onNavigate={handleNavigate} />}
           </div>
