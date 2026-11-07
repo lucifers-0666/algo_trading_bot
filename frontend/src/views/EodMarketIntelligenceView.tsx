@@ -40,6 +40,7 @@ export function EodMarketIntelligenceView({ onNavigate }: Props) {
   const handleKillSwitch = async () => {
     const active = Boolean(status.data?.kill_switch_active);
     const action = active ? "disengage" : "engage";
+    if (active && !window.confirm("Disengage the emergency kill switch? New paper entries may become eligible.")) return;
     const reason = active ? "Operator requested manual reset from EOD workstation" : "Emergency stop engaged from EOD workstation";
     await setKillSwitch(action, reason);
     await status.refetch();
@@ -102,8 +103,10 @@ export function EodMarketIntelligenceView({ onNavigate }: Props) {
               <div><span className="eod-label">50 EMA SLOPE</span><strong>{market.bias.sma50_slope_pct.toFixed(2)}%</strong></div>
               <div><span className="eod-label">SECTOR BREADTH</span><strong>{market.bias.positive_sector_count}/{market.bias.sector_count}</strong></div>
               <div><span className="eod-label">UNIVERSE COVERAGE</span><strong>{market.universe_covered}/{market.universe_requested}</strong></div>
+              <div><span className="eod-label">ADV / DEC</span><strong>{market.advancers}/{market.decliners}</strong></div>
+              <div><span className="eod-label">A/D RATIO</span><strong>{market.advance_decline_ratio?.toFixed(2) ?? "N/A"}</strong></div>
             </div>
-            <div className="eod-facts">{market.bias.reasons.map((fact) => <span key={fact}>{fact}</span>)}</div>
+            <div className="eod-facts"><span>Advance-decline breadth: {market.market_breadth_pct.toFixed(1)}%</span>{market.bias.reasons.map((fact) => <span key={fact}>{fact}</span>)}</div>
             {market.data_warning && <p className="eod-warning"><AlertTriangle size={14} /> {market.data_warning}</p>}
             <div className="eod-muted">Provider: {data?.provider} · Universe: {data?.universe_version} · Generated: {data?.generated_at_ist}</div>
           </>
