@@ -61,6 +61,7 @@ def test_candidate_quantity_obeys_half_percent_risk_and_capital():
     )
     if report.candidates:
         candidate = report.candidates[0]
+        assert candidate.status == "PENDING_REVIEW"
         assert candidate.tick_size == 0.10
         for level in (candidate.trigger_price, candidate.stop_loss, candidate.target_1, candidate.target_2):
             assert level / candidate.tick_size == pytest.approx(round(level / candidate.tick_size))
