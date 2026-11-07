@@ -57,12 +57,13 @@ def test_candidate_quantity_obeys_half_percent_risk_and_capital():
         min_relative_strength_20d=-1.0,
         min_relative_strength_60d=-1.0,
         min_avg_turnover_inr=1,
-        tick_size_by_symbol={"TESTCO": 0.01},
+        tick_size_by_symbol={"TESTCO": 0.10},
     )
     if report.candidates:
         candidate = report.candidates[0]
-        assert candidate.tick_size == 0.01
-        assert candidate.trigger_price == pytest.approx(round(candidate.trigger_price, 2))
+        assert candidate.tick_size == 0.10
+        for level in (candidate.trigger_price, candidate.stop_loss, candidate.target_1, candidate.target_2):
+            assert level / candidate.tick_size == pytest.approx(round(level / candidate.tick_size))
         assert candidate.planned_risk_inr <= 50.0
         assert candidate.capital_required_inr <= 5_000.0
         assert candidate.target_1 == pytest.approx(candidate.trigger_price + 2 * (candidate.trigger_price-candidate.stop_loss), abs=0.06)
