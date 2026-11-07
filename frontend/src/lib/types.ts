@@ -673,6 +673,8 @@ export interface EODCandidate {
   capital_required_inr: number;
   projected_pnl_target_1_inr: number;
   projected_pnl_target_2_inr: number;
+  projected_net_pnl_target_1_inr: number;
+  projected_net_pnl_target_2_inr: number;
   rationale_facts: string[];
   llm_narrative: string[];
   status: string;
