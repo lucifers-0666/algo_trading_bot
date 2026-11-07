@@ -411,17 +411,6 @@ export function getMarketDataStatus(signal?: AbortSignal): Promise<MarketDataSta
   });
 }
 
-export function configureMarketData(
-  payload: { api_key: string; client_code: string; pin: string; totp_secret: string; test_connection?: boolean },
-  signal?: AbortSignal
-): Promise<{ status: string; message: string; client_code: string; active_provider: string }> {
-  return fetchJson("/v1/market-data/configure", {
-    method: "POST",
-    body: JSON.stringify(payload),
-    signal,
-  });
-}
-
 export function selectMarketDataProvider(
   provider: string,
   signal?: AbortSignal
