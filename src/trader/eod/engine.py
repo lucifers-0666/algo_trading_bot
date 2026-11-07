@@ -42,6 +42,7 @@ class EODCandidate(BaseModel):
     ema20: float
     ema50: float
     atr14: float
+    tick_size: float
     rvol20: float
     trigger_price: float
     stop_loss: float
@@ -205,6 +206,7 @@ def build_eod_report(
     max_ema_distance_pct: float = 0.015,
     min_avg_turnover_inr: float = 20_000_000.0,
     max_candidates: int = 20,
+    tick_size_by_symbol: Optional[Mapping[str, float]] = None,
 ) -> EODReport:
     """Create next-session conditional setups from completed daily candles only.
 
@@ -265,12 +267,15 @@ def build_eod_report(
             if regime.bias == EODBias.RISK_OFF:
                 raise ValueError("market regime is Risk-Off; new long candidates blocked")
             pattern = "EMA20_PULLBACK" if near20 else "EMA50_PULLBACK"
-            trigger = _round_tick(float(row["high"]) + 0.10 * atr)
-            stop = _round_tick(trigger - 1.50 * atr)
+            tick_size = float((tick_size_by_symbol or {}).get(symbol, 0.05))
+            if not np.isfinite(tick_size) or tick_size <= 0:
+                raise ValueError("invalid instrument tick size")
+            trigger = _round_tick(float(row["high"]) + 0.10 * atr, tick_size)
+            stop = _round_tick(trigger - 1.50 * atr, tick_size)
             if stop <= 0 or stop >= trigger:
                 raise ValueError("invalid ATR stop geometry")
             one_r = trigger - stop
-            target1, target2 = _round_tick(trigger + 2 * one_r), _round_tick(trigger + 3 * one_r)
+            target1, target2 = _round_tick(trigger + 2 * one_r, tick_size), _round_tick(trigger + 3 * one_r, tick_size)
             qty_by_risk = floor(risk_budget / one_r)
             qty_by_capital = floor((virtual_equity_inr * max_capital_fraction_per_candidate) / trigger)
             quantity = min(qty_by_risk, qty_by_capital)
@@ -282,7 +287,7 @@ def build_eod_report(
             candidates.append(EODCandidate(
                 symbol=symbol, session_date=session_date, setup_pattern=pattern,
                 relative_strength_20d=round(rs20 * 100, 2), relative_strength_60d=round(rs60 * 100, 2),
-                ema20=round(ema20, 2), ema50=round(ema50, 2), atr14=round(atr, 2), rvol20=round(rvol, 2),
+                ema20=round(ema20, 2), ema50=round(ema50, 2), atr14=round(atr, 2), tick_size=tick_size, rvol20=round(rvol, 2),
                 trigger_price=trigger, stop_loss=stop, target_1=target1, target_2=target2,
                 quantity=quantity, risk_budget_inr=round(risk_budget, 2),
                 planned_risk_inr=planned_risk, capital_required_inr=round(quantity * trigger, 2),
