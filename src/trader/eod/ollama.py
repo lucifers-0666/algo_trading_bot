@@ -22,8 +22,8 @@ def explain_candidate(
     model: str | None = None,
     timeout_seconds: float = 20.0,
 ) -> List[str]:
-    url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")).rstrip("/")
-    model_name = model or os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct")
+    url = (base_url or os.getenv("OLLAMA_BASE_URL") or os.getenv("LOCAL_AI_BASE_URL", "http://127.0.0.1:11434")).rstrip("/")
+    model_name = model or os.getenv("OLLAMA_MODEL") or os.getenv("LOCAL_AI_MODEL", "fin-r1:7b-q4_k_m")
     response = requests.post(
         f"{url}/api/generate",
         json={
