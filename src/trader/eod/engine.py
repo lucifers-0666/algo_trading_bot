@@ -15,7 +15,7 @@ import pandas as pd
 from pydantic import BaseModel, Field
 
 from trader.domain.models import OrderSide
-from trader.backtest.costs import calculate_trade_costs
+from trader.backtest.costs import calculate_trade_costs, BrokerProfile, TradeType
 
 
 class EODBias(str, Enum):
@@ -74,6 +74,7 @@ class EODReport(BaseModel):
     rejected_symbols: Dict[str, str] = Field(default_factory=dict)
     risk_per_trade_pct: float = 0.5
     virtual_equity_inr: float
+    broker_profile: str = "ANGEL_ONE"
     advancers: int = 0
     decliners: int = 0
     unchanged: int = 0
@@ -214,6 +215,7 @@ def build_eod_report(
     tick_size_by_symbol: Optional[Mapping[str, float]] = None,
     brokerage_flat_inr: float = 20.0,
     slippage_bps: float = 10.0,
+    broker_profile: BrokerProfile = BrokerProfile.ANGEL_ONE,
 ) -> EODReport:
     """Create next-session conditional setups from completed daily candles only.
 
@@ -296,6 +298,7 @@ def build_eod_report(
                 buy_cost = calculate_trade_costs(
                     side=OrderSide.BUY, price=trigger, quantity=quantity,
                     brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                    broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
                 )
                 sell_stop_cost = calculate_trade_costs(
                     side=OrderSide.SELL, price=stop, quantity=quantity,
@@ -315,6 +318,7 @@ def build_eod_report(
             buy_cost = calculate_trade_costs(
                 side=OrderSide.BUY, price=trigger, quantity=quantity,
                 brokerage_flat=brokerage_flat_inr, slippage_bps=slippage_bps,
+                broker=broker_profile, trade_type=TradeType.DELIVERY, include_dp_charges=True,
             )
             sell_target1_cost = calculate_trade_costs(
                 side=OrderSide.SELL, price=target1, quantity=quantity,
@@ -352,6 +356,7 @@ def build_eod_report(
         bias=regime, universe_requested=len(stock_daily), universe_covered=len(stock_daily),
         candidates=candidates, rejected_symbols=rejected, risk_per_trade_pct=risk_per_trade_pct*100,
         virtual_equity_inr=virtual_equity_inr,
+        broker_profile=broker_profile.value,
         advancers=advancers, decliners=decliners, unchanged=unchanged,
         advance_decline_ratio=round(advancers / decliners, 3) if decliners else None,
         market_breadth_pct=round(100 * advancers / max(1, advancers + decliners + unchanged), 2),
