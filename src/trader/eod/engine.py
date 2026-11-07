@@ -215,7 +215,7 @@ def build_eod_report(
         raise ValueError("Equity must be positive and risk_per_trade_pct must be in (0, 0.5%].")
     if not 0 < max_capital_fraction_per_candidate <= 1:
         raise ValueError("max_capital_fraction_per_candidate must be in (0, 1].")
-    nifty = _indicators(_validate_frame(nifty_daily, "NIFTY 50"))
+    nifty = _indicators(_validate_frame(nifty_daily, "NIFTY 50", require_volume=False))
     regime = classify_eod_regime(nifty_daily, sector_indices, india_vix_daily)
     benchmark = nifty["close"]
     session_date = pd.Timestamp(nifty.iloc[-1]["timestamp"]).date().isoformat() if "timestamp" in nifty.columns else "latest-session"
