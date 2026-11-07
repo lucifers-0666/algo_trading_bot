@@ -43,6 +43,7 @@ $payload = @{
     universe_symbols = $symbols
     universe_version = $UniverseVersion
     tick_size_by_symbol = $tickSizeBySymbol
+    broker_profile = "ANGEL_ONE"
     nifty_symbol = "^NSEI"
     india_vix_symbol = "^INDIAVIX"
     sector_index_symbols = @{
