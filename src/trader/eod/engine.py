@@ -333,6 +333,8 @@ def build_eod_report(
             )
             net_target1 = round(sell_target1_cost.net_trade_amount - buy_cost.net_trade_amount, 2)
             net_target2 = round(sell_target2_cost.net_trade_amount - buy_cost.net_trade_amount, 2)
+            if net_target2 <= 0:
+                raise ValueError("estimated round-trip costs erase the projected 3R reward")
             candidates.append(EODCandidate(
                 symbol=symbol, session_date=session_date, setup_pattern=pattern,
                 relative_strength_20d=round(rs20 * 100, 2), relative_strength_60d=round(rs60 * 100, 2),
