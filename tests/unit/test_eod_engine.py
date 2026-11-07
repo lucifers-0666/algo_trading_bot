@@ -32,7 +32,8 @@ def bullish_inputs():
     vix = frame(np.full(n, 14.0))
     # Stronger stock trend, then a final controlled pullback to the 20 EMA.
     stock_close = np.linspace(100, 145, n)
-    stock_close[-1] = stock_close[-2] * 0.985
+    prior_ema20 = pd.Series(stock_close[:-1]).ewm(span=20, adjust=False).mean().iloc[-1]
+    stock_close[-1] = prior_ema20 * 1.005
     stock_volume = np.full(n, 200_000.0)
     stock_volume[-1] = 500_000.0
     stock = frame(stock_close, stock_volume)
