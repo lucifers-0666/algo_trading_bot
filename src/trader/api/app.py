@@ -4,7 +4,7 @@ Backtesting, ML Registry, Risk Management, and Virtual Paper Trading.
 STRICTLY BOUND TO LOCALHOST (127.0.0.1) AND STRICTLY VIRTUAL PAPER TRADING.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import asyncio
@@ -1417,6 +1417,19 @@ def run_eod_analysis(req: EODRunRequest) -> Dict[str, Any]:
         return candles_to_dataframe(candles)
 
     nifty = load_daily(req.nifty_symbol)
+    # Determine the most recent completed regular NSE session from the exchange calendar.
+    now_ist = datetime.now(IST)
+    expected_session = now_ist.date()
+    if not default_nse_calendar.is_trading_day(expected_session) or now_ist.time() < NSE_MARKET_CLOSE:
+        expected_session -= timedelta(days=1)
+    while not default_nse_calendar.is_trading_day(expected_session):
+        expected_session -= timedelta(days=1)
+    actual_nifty_session = pd.Timestamp(nifty.iloc[-1]["timestamp"]).date()
+    if actual_nifty_session != expected_session:
+        raise HTTPException(
+            status_code=422,
+            detail=f"NIFTY latest candle is {actual_nifty_session}; expected last completed NSE session {expected_session}. Data may be stale or not finalized.",
+        )
     vix = load_daily(req.india_vix_symbol)
     sectors = {name: load_daily(symbol) for name, symbol in req.sector_index_symbols.items()}
     stock_frames: Dict[str, pd.DataFrame] = {}
