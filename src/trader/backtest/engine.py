@@ -25,6 +25,8 @@ class BacktestTradeRecord(BaseModel):
     quantity: int
     entry_costs: float
     exit_costs: float = 0.0
+    entry_slippage: float = 0.0
+    exit_slippage: float = 0.0
     gross_pnl: float = 0.0
     net_pnl: float = 0.0
     return_pct: float = 0.0
@@ -270,6 +272,8 @@ class BacktestEngine:
                         quantity=t_data["quantity"],
                         entry_costs=t_data["entry_costs"],
                         exit_costs=cost_breakdown.total_costs_inr,
+                        entry_slippage=t_data.get("entry_slippage", 0.0),
+                        exit_slippage=cost_breakdown.slippage_inr,
                         gross_pnl=gross_pnl,
                         net_pnl=net_pnl,
                         return_pct=ret_pct,
@@ -320,27 +324,27 @@ class BacktestEngine:
         if sorted_dates:
             last_dt = sorted_dates[-1]
             for sym, t_data in open_trades.items():
-                cost_breakdown = calculate_trade_costs(
-                    side=OrderSide.SELL,
-                    price=t_data["current_price"],
-                    quantity=t_data["quantity"],
-                    brokerage_flat=self.brokerage_flat,
-                    slippage_bps=self.slippage_bps,
+                # Keep an open position marked to the final close. Do not book a
+                # hypothetical exit fee/slippage as a paid cost or fabricate an exit fill.
+                gross_pnl = round(
+                    (t_data["current_price"] - t_data["entry_price"]) * t_data["quantity"], 2
                 )
-                gross_pnl = round((cost_breakdown.effective_price - t_data["entry_price"]) * t_data["quantity"], 2)
-                total_trade_costs = round(t_data["entry_costs"] + cost_breakdown.total_costs_inr, 2)
-                net_pnl = round(gross_pnl - total_trade_costs, 2)
-                ret_pct = round((net_pnl / (t_data["entry_price"] * t_data["quantity"])) * 100.0, 2)
+                net_pnl = round(gross_pnl - t_data["entry_costs"], 2)
+                ret_pct = round(
+                    (net_pnl / (t_data["entry_price"] * t_data["quantity"])) * 100.0, 2
+                )
 
                 open_rec = BacktestTradeRecord(
                     symbol=sym,
                     entry_date=t_data["entry_date"],
-                    exit_date=last_dt,
+                    exit_date=None,
                     entry_price=t_data["entry_price"],
-                    exit_price=cost_breakdown.effective_price,
+                    exit_price=None,
                     quantity=t_data["quantity"],
                     entry_costs=t_data["entry_costs"],
-                    exit_costs=cost_breakdown.total_costs_inr,
+                    exit_costs=0.0,
+                    entry_slippage=t_data.get("entry_slippage", 0.0),
+                    exit_slippage=0.0,
                     gross_pnl=gross_pnl,
                     net_pnl=net_pnl,
                     return_pct=ret_pct,
@@ -357,7 +361,7 @@ class BacktestEngine:
                 "net_pnl": r.net_pnl,
                 "gross_pnl": r.gross_pnl,
                 "costs_inr": r.entry_costs + r.exit_costs,
-                "slippage_inr": 0.0,
+                "slippage_inr": r.entry_slippage + r.exit_slippage,
             }
             for r in closed_trades
         ]

@@ -36,41 +36,53 @@ import type {
   NextSessionForecast,
   ForecastHistoryResponse,
   RoundtripSimulation,
+  EODReportEnvelope,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 export function getWsTokenParam(): string {
-  const token =
-    (import.meta.env.VITE_API_TOKEN as string | undefined) ||
-    (typeof window !== "undefined" ? window.localStorage.getItem("northstar_api_token") : null);
-  return token ? `?token=${encodeURIComponent(token)}` : "";
+  // Same-origin WebSocket connections carry the HttpOnly session cookie automatically.
+  return "";
 }
 
-function getAuthHeaders(): Record<string, string> {
-  const token =
-    (import.meta.env.VITE_API_TOKEN as string | undefined) ||
-    (typeof window !== "undefined" ? window.localStorage.getItem("northstar_api_token") : null);
-  if (token) {
-    return {
-      Authorization: `Bearer ${token}`,
-      "X-API-Token": token,
-    };
+let localSessionPromise: Promise<void> | null = null;
+
+async function establishLocalSession(): Promise<void> {
+  if (!localSessionPromise) {
+    localSessionPromise = (async () => {
+      const token = window.prompt("Enter the local workstation access token");
+      if (!token) throw new Error("Local workstation authentication was cancelled.");
+      const response = await fetch(`${API_BASE}/v1/auth/session`, {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      if (!response.ok) throw new Error("Local workstation authentication failed.");
+    })().finally(() => {
+      localSessionPromise = null;
+    });
   }
-  return {};
+  return localSessionPromise;
 }
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
-  const response = await fetch(url, {
+  const request = () => fetch(url, {
+    credentials: "include",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
       ...(options?.headers ?? {}),
     },
     ...options,
   });
+  let response = await request();
+  if (response.status === 401 && typeof window !== "undefined") {
+    await establishLocalSession();
+    response = await request();
+  }
 
   if (!response.ok) {
     let errDetail = `HTTP ${response.status}`;
@@ -399,17 +411,6 @@ export function getMarketDataStatus(signal?: AbortSignal): Promise<MarketDataSta
   });
 }
 
-export function configureMarketData(
-  payload: { api_key: string; client_code: string; pin: string; totp_secret: string; test_connection?: boolean },
-  signal?: AbortSignal
-): Promise<{ status: string; message: string; client_code: string; active_provider: string }> {
-  return fetchJson("/v1/market-data/configure", {
-    method: "POST",
-    body: JSON.stringify(payload),
-    signal,
-  });
-}
-
 export function selectMarketDataProvider(
   provider: string,
   signal?: AbortSignal
@@ -475,4 +476,9 @@ export function simulateTradeCosts(
     body: JSON.stringify(payload),
     signal,
   });
+}
+
+
+export function getLatestEodReport(signal?: AbortSignal): Promise<EODReportEnvelope> {
+  return fetchJson<EODReportEnvelope>("/v1/eod/latest", { method: "GET", signal });
 }

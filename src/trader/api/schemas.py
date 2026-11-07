@@ -113,3 +113,15 @@ class TradingViewWebhookPayload(BaseModel):
 
 
 
+
+
+class EODRunRequest(BaseModel):
+    """Explicit point-in-time NSE universe and index symbols for an EOD run."""
+    universe_symbols: List[str] = Field(..., min_length=1, max_length=500)
+    universe_version: str = Field(..., min_length=1, max_length=100)
+    nifty_symbol: str = "^NSEI"
+    india_vix_symbol: str = "^INDIAVIX"
+    sector_index_symbols: Dict[str, str] = Field(default_factory=dict)
+    tick_size_by_symbol: Dict[str, float] = Field(default_factory=dict)
+    max_candidates: int = Field(default=20, ge=1, le=100)
+    generate_ollama_narratives: bool = False

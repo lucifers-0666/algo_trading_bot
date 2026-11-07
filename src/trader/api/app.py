@@ -4,20 +4,26 @@ Backtesting, ML Registry, Risk Management, and Virtual Paper Trading.
 STRICTLY BOUND TO LOCALHOST (127.0.0.1) AND STRICTLY VIRTUAL PAPER TRADING.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import asyncio
 import json
+import logging
+import math
 import os
+import secrets
 import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 from fastapi import (
     FastAPI,
     HTTPException,
+    Response,
     Query,
     Body,
     WebSocket,
@@ -65,6 +71,8 @@ from trader.paper.accounting import PortfolioAccountant
 from trader.paper.broker import VirtualPaperBroker
 from trader.providers import CSVDataProvider, YFinanceAdapter, NSELiveAdapter
 from trader.ml.forecaster import NextSessionForecaster, NextSessionForecast
+from trader.eod.engine import build_eod_report
+from trader.eod.ollama import explain_candidate
 from trader.backtest.costs import (
     simulate_roundtrip_trade,
     calculate_trade_costs,
@@ -106,6 +114,7 @@ from trader.api.schemas import (
     CostSimulateRequest,
     ForecastEvaluateRequest,
     TradingViewWebhookPayload,
+    EODRunRequest,
 )
 
 app = FastAPI(
@@ -119,7 +128,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Accept", "Content-Type", "Authorization", "X-API-Token"],
 )
@@ -151,15 +160,47 @@ def verify_api_token(
         token = authorization[7:].strip()
     elif x_api_token:
         token = x_api_token.strip()
-    elif "token" in request.query_params:
-        token = request.query_params.get("token")
+    else:
+        token = request.cookies.get("northstar_session")
 
-    if not token or token != expected_token:
+    if not token or not secrets.compare_digest(token, expected_token):
         raise HTTPException(
             status_code=401,
             detail="Unauthorized: Invalid or missing API token.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+@app.post("/api/v1/auth/session", tags=["system"])
+def create_local_api_session(
+    request: Request,
+    response: Response,
+    payload: Dict[str, str] = Body(...),
+) -> Dict[str, bool]:
+    """Exchange a locally supplied workstation token for an HttpOnly session cookie."""
+    verify_localhost(request)
+    expected_token = os.getenv("NORTHSTAR_API_TOKEN")
+    if expected_token:
+        supplied = str(payload.get("token", ""))
+        if not supplied or not secrets.compare_digest(supplied, expected_token):
+            raise HTTPException(status_code=401, detail="Invalid local workstation token.")
+        response.set_cookie(
+            key="northstar_session",
+            value=expected_token,
+            httponly=True,
+            secure=False,  # local-only HTTP workstation; never expose this endpoint remotely
+            samesite="strict",
+            max_age=8 * 60 * 60,
+            path="/api",
+        )
+    return {"authenticated": True}
+
+
+@app.delete("/api/v1/auth/session", tags=["system"])
+def delete_local_api_session(request: Request, response: Response) -> Dict[str, bool]:
+    verify_localhost(request)
+    response.delete_cookie(key="northstar_session", path="/api")
+    return {"authenticated": False}
 
 
 async def verify_ws_auth(websocket: WebSocket) -> bool:
@@ -173,13 +214,13 @@ async def verify_ws_auth(websocket: WebSocket) -> bool:
     if not expected_token:
         return True
 
-    token = websocket.query_params.get("token")
+    token = None
     if not token:
         auth = websocket.headers.get("authorization")
         if auth and auth.lower().startswith("bearer "):
             token = auth[7:].strip()
         else:
-            token = websocket.headers.get("x-api-token")
+            token = websocket.headers.get("x-api-token") or websocket.cookies.get("northstar_session")
 
     if not token or token != expected_token:
         await websocket.close(
@@ -403,11 +444,11 @@ def get_market_depth(symbol: str) -> Dict[str, Any]:
 
 
 @app.post("/api/v1/market-data/configure", tags=["market"], dependencies=[Depends(verify_api_token)])
-def configure_market_data(req: Dict[str, Any]) -> Dict[str, Any]:
-    """Configures market data feed settings."""
+def configure_market_data() -> Dict[str, Any]:
+    """Credentials are backend environment-only; browser-supplied secrets are not accepted."""
     return {
-        "status": "configured",
-        "message": "Platform operates 100% broker-free using live exchange market feeds (yfinance / nselib).",
+        "status": "server_environment_only",
+        "message": "Configure authorized provider credentials in the backend .env and restart FastAPI. This endpoint does not accept or persist credentials.",
         "active_provider": ACTIVE_DATA_PROVIDER,
     }
 
@@ -417,8 +458,8 @@ def select_market_data_provider(req: ProviderSelectRequest) -> Dict[str, Any]:
     """Switches active market data provider."""
     global ACTIVE_DATA_PROVIDER
     target = req.provider.strip().lower()
-    valid_providers = {"yfinance", "nse_live", "csv"}
-    if target not in valid_providers and target not in {"angelone", "dhan", "truedata", "synthetic"}:
+    valid_providers = {"yfinance", "csv"}
+    if target not in valid_providers:
         raise HTTPException(status_code=400, detail=f"Invalid provider '{target}'. Must be one of {valid_providers}")
 
     ACTIVE_DATA_PROVIDER = target
@@ -1341,3 +1382,125 @@ def config_bot(force_market_open: Optional[bool] = Body(None), interval: Optiona
     if interval is not None and interval >= 5:
         auto_trader.scan_interval_seconds = interval
     return auto_trader.get_status()
+
+
+# -----------------------------------------------------------------------------
+# 8c. End-of-Session market intelligence (research + conditional setups only)
+# -----------------------------------------------------------------------------
+EOD_REPORT_DIR = Path("data/reports/eod")
+
+
+@app.post("/api/v1/eod/run", tags=["eod"], dependencies=[Depends(verify_api_token)])
+def run_eod_analysis(req: EODRunRequest) -> Dict[str, Any]:
+    """Build a deterministic EOD report from an explicit point-in-time universe.
+
+    No broker order is submitted. The caller must supply the NIFTY 500 constituent
+    snapshot/version; the service will not silently substitute the small curated list.
+    """
+    provider = get_market_provider()
+    symbols = sorted({s.strip().upper() for s in req.universe_symbols if s.strip()})
+    if not symbols:
+        raise HTTPException(status_code=422, detail="The supplied universe contains no valid symbols.")
+    tick_sizes = {key.strip().upper(): float(value) for key, value in req.tick_size_by_symbol.items()}
+    missing_tick_sizes = sorted(set(symbols) - set(tick_sizes))
+    if missing_tick_sizes:
+        raise HTTPException(status_code=422, detail=f"Monthly NSE tick-size data is required for every symbol; missing {len(missing_tick_sizes)} entries.")
+    if any(not math.isfinite(value) or value <= 0 for value in tick_sizes.values()):
+        raise HTTPException(status_code=422, detail="Tick sizes must be finite positive numbers.")
+
+    source_labels: set[str] = set()
+
+    def load_daily(symbol: str) -> pd.DataFrame:
+        try:
+            candles = provider.get_historical_candles(symbol, timeframe=Timeframe.DAILY)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Historical data provider failed for {symbol}: {exc}")
+        if not candles or len(candles) < 61:
+            raise HTTPException(status_code=422, detail=f"{symbol}: at least 61 daily candles are required.")
+        labels = {c.source.value for c in candles[-61:]}
+        if labels.intersection({"SYNTHETIC", "UNAVAILABLE", "STALE", "ERROR"}):
+            raise HTTPException(status_code=422, detail=f"{symbol}: synthetic, stale or unavailable data cannot produce EOD candidates.")
+        source_labels.update(labels)
+        return candles_to_dataframe(candles)
+
+    nifty = load_daily(req.nifty_symbol)
+    # Determine the most recent completed regular NSE session from the exchange calendar.
+    now_ist = datetime.now(IST)
+    expected_session = now_ist.date()
+    if not default_nse_calendar.is_trading_day(expected_session) or now_ist.time() < NSE_MARKET_CLOSE:
+        expected_session -= timedelta(days=1)
+    while not default_nse_calendar.is_trading_day(expected_session):
+        expected_session -= timedelta(days=1)
+    actual_nifty_session = pd.Timestamp(nifty.iloc[-1]["timestamp"]).date()
+    if actual_nifty_session != expected_session:
+        raise HTTPException(
+            status_code=422,
+            detail=f"NIFTY latest candle is {actual_nifty_session}; expected last completed NSE session {expected_session}. Data may be stale or not finalized.",
+        )
+    vix = load_daily(req.india_vix_symbol)
+    sectors = {name: load_daily(symbol) for name, symbol in req.sector_index_symbols.items()}
+    stock_frames: Dict[str, pd.DataFrame] = {}
+    rejected_loads: Dict[str, str] = {}
+    for symbol in symbols:
+        try:
+            stock_frames[symbol] = load_daily(symbol)
+        except HTTPException as exc:
+            rejected_loads[symbol] = str(exc.detail)
+
+    if not stock_frames:
+        raise HTTPException(status_code=422, detail="No eligible stock history could be loaded.")
+
+    try:
+        report = build_eod_report(
+            nifty_daily=nifty,
+            sector_indices=sectors,
+            india_vix_daily=vix,
+            stock_daily=stock_frames,
+            virtual_equity_inr=accountant.total_equity,
+            risk_per_trade_pct=0.005,
+            max_candidates=req.max_candidates,
+            tick_size_by_symbol=tick_sizes,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"EOD analysis rejected invalid/incomplete data: {exc}")
+
+    report.universe_requested = len(symbols)
+    report.universe_covered = len(stock_frames)
+    report.rejected_symbols.update(rejected_loads)
+    if rejected_loads:
+        report.data_warning = (report.data_warning or "") + f" {len(rejected_loads)} symbols lacked usable history and were excluded."
+    if req.generate_ollama_narratives:
+        for candidate in report.candidates:
+            try:
+                candidate.llm_narrative = explain_candidate(candidate, report.bias)
+            except Exception as exc:
+                logger.warning("Ollama narrative unavailable for %s: %s", candidate.symbol, exc)
+                candidate.llm_narrative = ["Local narrative unavailable; numeric setup remains deterministic.", "Review the displayed indicators and source data.", "No AI-generated trade levels or order instructions were used."]
+
+    envelope = {
+        "generated_at_ist": datetime.now(IST).isoformat(),
+        "provider": ACTIVE_DATA_PROVIDER,
+        "data_sources": sorted(source_labels),
+        "universe_version": req.universe_version,
+        "universe_symbols_requested": len(symbols),
+        "report": report.model_dump(mode="json"),
+        "execution_mode": "RESEARCH_ONLY_PENDING_NEXT_SESSION_REVALIDATION",
+        "live_order_routing_enabled": False,
+    }
+    EOD_REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    report_path = EOD_REPORT_DIR / f"{report.session_date}.json"
+    report_path.write_text(json.dumps(envelope, indent=2), encoding="utf-8")
+    (EOD_REPORT_DIR / "latest.json").write_text(json.dumps(envelope, indent=2), encoding="utf-8")
+    return envelope
+
+
+@app.get("/api/v1/eod/latest", tags=["eod"], dependencies=[Depends(verify_localhost)])
+def get_latest_eod_report() -> Dict[str, Any]:
+    """Return the latest saved EOD research report, if one exists."""
+    report_path = EOD_REPORT_DIR / "latest.json"
+    if not report_path.exists():
+        raise HTTPException(status_code=404, detail="No EOD report has been generated yet.")
+    try:
+        return json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail=f"Saved EOD report is unreadable: {exc}")
