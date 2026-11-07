@@ -430,3 +430,4 @@ class NextSessionForecaster:
             ledger = [e for e in ledger if e.get("symbol") == sym_clean]
         ledger.reverse()
         return ledger[:limit]
+

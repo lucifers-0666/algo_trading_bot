@@ -60,3 +60,4 @@ def test_forecaster_ledger_and_evaluation():
     eval_result = forecaster.evaluate_realized_candles({"RELIANCE": candles})
     assert "total_predictions" in eval_result
     assert "accuracy_pct" in eval_result
+

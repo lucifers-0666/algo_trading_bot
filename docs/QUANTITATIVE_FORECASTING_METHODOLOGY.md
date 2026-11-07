@@ -58,3 +58,4 @@ Once the target trading session occurs, `evaluate_realized_candles()` computes:
 - Direction Hit: True if predicted direction matched realized price movement.
 - Range Containment: True if realized High/Low stayed within forecast bands.
 - Mean Absolute Error (MAE) and historical hit-rate scorecard.
+

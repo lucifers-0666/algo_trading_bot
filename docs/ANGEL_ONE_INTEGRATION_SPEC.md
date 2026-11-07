@@ -59,3 +59,4 @@ Core indices and liquid NSE equities are mapped in `STANDARD_ANGEL_TOKENS`:
 - `INFY`: NSE token `1594`
 - `HDFCBANK`: NSE token `1333`
 Dynamic resolution fallback uses `SmartConnect.searchScrip("NSE", symbol)`.
+

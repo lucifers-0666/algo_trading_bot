@@ -47,3 +47,4 @@ Because delivery sell trades incur both variable taxes (STT 0.10%, NSE txn 0.002
 $$\text{Breakeven Price} = \frac{\text{Net Buy Inflow} + \text{Fixed Sell Costs}}{Q \times (1 - \text{Variable Sell Tax Rate})}$$
 
 This formula guarantees that simulated strategies only trigger exits when net after-tax profits are positive.
+
