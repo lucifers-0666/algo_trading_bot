@@ -443,11 +443,11 @@ def get_market_depth(symbol: str) -> Dict[str, Any]:
 
 
 @app.post("/api/v1/market-data/configure", tags=["market"], dependencies=[Depends(verify_api_token)])
-def configure_market_data(req: Dict[str, Any]) -> Dict[str, Any]:
-    """Configures market data feed settings."""
+def configure_market_data() -> Dict[str, Any]:
+    """Credentials are backend environment-only; browser-supplied secrets are not accepted."""
     return {
-        "status": "configured",
-        "message": "Platform operates 100% broker-free using live exchange market feeds (yfinance / nselib).",
+        "status": "server_environment_only",
+        "message": "Configure authorized provider credentials in the backend .env and restart FastAPI. This endpoint does not accept or persist credentials.",
         "active_provider": ACTIVE_DATA_PROVIDER,
     }
 
@@ -457,8 +457,8 @@ def select_market_data_provider(req: ProviderSelectRequest) -> Dict[str, Any]:
     """Switches active market data provider."""
     global ACTIVE_DATA_PROVIDER
     target = req.provider.strip().lower()
-    valid_providers = {"yfinance", "nse_live", "csv"}
-    if target not in valid_providers and target not in {"angelone", "dhan", "truedata", "synthetic"}:
+    valid_providers = {"yfinance", "csv"}
+    if target not in valid_providers:
         raise HTTPException(status_code=400, detail=f"Invalid provider '{target}'. Must be one of {valid_providers}")
 
     ACTIVE_DATA_PROVIDER = target
