@@ -661,6 +661,7 @@ export interface EODCandidate {
   ema20: number;
   ema50: number;
   atr14: number;
+  tick_size: number;
   rvol20: number;
   trigger_price: number;
   stop_loss: number;
