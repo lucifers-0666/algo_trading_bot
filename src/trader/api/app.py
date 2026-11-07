@@ -127,7 +127,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Accept", "Content-Type", "Authorization", "X-API-Token"],
 )
@@ -213,7 +213,7 @@ async def verify_ws_auth(websocket: WebSocket) -> bool:
     if not expected_token:
         return True
 
-    token = websocket.query_params.get("token")
+    token = None
     if not token:
         auth = websocket.headers.get("authorization")
         if auth and auth.lower().startswith("bearer "):
