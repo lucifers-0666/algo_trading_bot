@@ -700,6 +700,7 @@ export interface EODReport {
   rejected_symbols: Record<string, string>;
   risk_per_trade_pct: number;
   virtual_equity_inr: number;
+  broker_profile: string;
   advancers: number;
   decliners: number;
   unchanged: number;
