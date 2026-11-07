@@ -59,3 +59,24 @@ def test_zero_real_demat_broker_endpoints():
         assert "import smartapi" not in content
         assert "import upstox" not in content
 
+
+
+
+def test_frontend_never_stores_provider_credentials_or_private_api_tokens():
+    api_client = Path("frontend/src/lib/api.ts").read_text(encoding="utf-8")
+    provider_view = Path("frontend/src/views/MarketDataSettingsView.tsx").read_text(encoding="utf-8")
+
+    assert "VITE_API_TOKEN" not in api_client
+    assert "northstar_api_token" not in api_client
+    assert "localStorage" not in api_client
+    assert "angelApiKey" not in provider_view
+    assert "angelTotpSecret" not in provider_view
+    assert "totp_secret:" not in provider_view
+
+
+def test_local_api_token_is_exchanged_for_httponly_cookie():
+    api_source = Path("src/trader/api/app.py").read_text(encoding="utf-8")
+    assert 'key="northstar_session"' in api_source
+    assert "httponly=True" in api_source
+    assert 'request.cookies.get("northstar_session")' in api_source
+    assert 'request.query_params.get("token")' not in api_source
