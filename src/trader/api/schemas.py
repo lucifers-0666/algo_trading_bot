@@ -1,9 +1,9 @@
-from trader.backtest.costs import BrokerProfile
 """Pydantic Request and Response Schemas for the FastAPI REST API."""
 
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from trader.domain.models import OrderSide, OrderType, OrderStatus, Timeframe
+from trader.backtest.costs import BrokerProfile
 
 
 class OrderProposalRequest(BaseModel):
