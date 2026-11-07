@@ -162,7 +162,7 @@ def verify_api_token(
     else:
         token = request.cookies.get("northstar_session")
 
-    if not token or token != expected_token:
+    if not token or not secrets.compare_digest(token, expected_token):
         raise HTTPException(
             status_code=401,
             detail="Unauthorized: Invalid or missing API token.",
@@ -1456,7 +1456,11 @@ def run_eod_analysis(req: EODRunRequest) -> Dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=f"EOD analysis rejected invalid/incomplete data: {exc}")
 
+    report.universe_requested = len(symbols)
+    report.universe_covered = len(stock_frames)
     report.rejected_symbols.update(rejected_loads)
+    if rejected_loads:
+        report.data_warning = (report.data_warning or "") + f" {len(rejected_loads)} symbols lacked usable history and were excluded."
     if req.generate_ollama_narratives:
         for candidate in report.candidates:
             try:
