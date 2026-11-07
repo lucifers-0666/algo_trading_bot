@@ -395,6 +395,7 @@ export default function App() {
             {activePage === "Next-session forecasting" && (
               <NextSessionForecastView onNavigateToAi={(sym) => handleNavigate("Local financial AI", sym)} />
             )}
+            {activePage === "EOD Market intelligence" && <EodMarketIntelligenceView onNavigate={handleNavigate} />}
             {activePage === "Local financial AI" && <LocalAiResearchView activeSymbol={activeSymbol} />}
             {activePage === "Instrument master" && <InstrumentMasterView onNavigate={handleNavigate} />}
             {activePage === "Stock research" && (
