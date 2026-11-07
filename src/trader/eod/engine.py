@@ -33,7 +33,7 @@ class RegimeSnapshot(BaseModel):
     advancers: int = 0
     decliners: int = 0
     unchanged: int = 0
-    advance_decline_ratio: float = 0.0
+    advance_decline_ratio: Optional[float] = None
     market_breadth_pct: float = 0.0
     reasons: List[str] = Field(default_factory=list)
 
@@ -164,10 +164,10 @@ def classify_eod_regime(
         raise ValueError("India VIX latest session does not match NIFTY 50.")
     reasons = [
         f"NIFTY close {close:.2f}; SMA20/SMA50 {sma20_last:.2f}/{sma50_last:.2f}",
-        f"ADX(14) {adx:.1f}; EMA20 slope {slope20:.2f}%; EMA50 slope {slope50:.2f}%",
+        f"ADX(14) {adx:.1f}; SMA20 slope {slope20:.2f}%; SMA50 slope {slope50:.2f}%",
         f"India VIX {vix_value:.2f}; positive sectors {positive}/{total}",
     ]
-    risk_off = vix_value >= 25 or (close < ema50 and slope50 < -0.15 and adx >= 18)
+    risk_off = vix_value >= 25 or (close < sma50_last and slope50 < -0.15 and adx >= 18)
     bullish = close > sma20_last > sma50_last and slope20 > 0 and slope50 > 0 and adx >= 18 and vix_value < 22 and total > 0 and breadth >= 0.5
     bias = EODBias.RISK_OFF if risk_off else EODBias.BULLISH_TREND if bullish else EODBias.MEAN_REVERTING
     return RegimeSnapshot(
@@ -296,7 +296,7 @@ def build_eod_report(
         candidates=candidates, rejected_symbols=rejected, risk_per_trade_pct=risk_per_trade_pct*100,
         virtual_equity_inr=virtual_equity_inr,
         advancers=advancers, decliners=decliners, unchanged=unchanged,
-        advance_decline_ratio=round(advancers / decliners, 3) if decliners else float(advancers),
+        advance_decline_ratio=round(advancers / decliners, 3) if decliners else None,
         market_breadth_pct=round(100 * advancers / max(1, advancers + decliners + unchanged), 2),
         data_warning="Coverage is only as complete as the supplied point-in-time NIFTY 500 constituent list and licensed EOD data.",
     )
