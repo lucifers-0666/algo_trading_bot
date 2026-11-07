@@ -1460,6 +1460,7 @@ def run_eod_analysis(req: EODRunRequest) -> Dict[str, Any]:
             risk_per_trade_pct=0.005,
             max_candidates=req.max_candidates,
             tick_size_by_symbol=tick_sizes,
+            broker_profile=req.broker_profile,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=f"EOD analysis rejected invalid/incomplete data: {exc}")
