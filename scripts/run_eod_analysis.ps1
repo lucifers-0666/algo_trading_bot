@@ -12,6 +12,11 @@ if (-not (Test-Path $UniverseCsv)) {
     throw "Missing point-in-time NIFTY 500 CSV: $UniverseCsv. Do not substitute the curated sample universe."
 }
 
+if ($UniverseVersion -eq "nifty500-current") {
+    $fileStamp = (Get-Item $UniverseCsv).LastWriteTime.ToString("yyyyMMdd")
+    $UniverseVersion = "nifty500-$fileStamp"
+}
+
 $rows = Import-Csv -Path $UniverseCsv
 if (-not $rows -or -not ($rows[0].PSObject.Properties.Name -contains "symbol")) {
     throw "Universe CSV must contain a 'symbol' column."
