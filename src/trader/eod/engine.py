@@ -30,6 +30,11 @@ class RegimeSnapshot(BaseModel):
     india_vix: float
     positive_sector_count: int
     sector_count: int
+    advancers: int = 0
+    decliners: int = 0
+    unchanged: int = 0
+    advance_decline_ratio: float = 0.0
+    market_breadth_pct: float = 0.0
     reasons: List[str] = Field(default_factory=list)
 
 
@@ -112,9 +117,9 @@ def _indicators(frame: pd.DataFrame) -> pd.DataFrame:
     minus_di = 100 * minus_dm.ewm(alpha=1/14, adjust=False, min_periods=14).mean() / atr
     dx = 100 * (plus_di-minus_di).abs() / (plus_di+minus_di).replace(0, np.nan)
     out["adx14"] = dx.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
-    out["rvol20"] = out["volume"] / out["volume"].rolling(20, min_periods=20).mean().replace(0, np.nan)
+    out["rvol20"] = out["volume"] / out["volume"].shift(1).rolling(20, min_periods=20).mean().replace(0, np.nan)
     out["turnover"] = out.get("turnover", out["close"] * out["volume"])
-    out["turnover20"] = out["turnover"].rolling(20, min_periods=20).mean()
+    out["turnover20"] = out["turnover"].shift(1).rolling(20, min_periods=20).mean()
     return out
 
 
@@ -134,25 +139,36 @@ def classify_eod_regime(
     vix = _validate_frame(india_vix_daily, "India VIX")
     row = nifty.iloc[-1]
     vix_value = float(vix.iloc[-1]["close"])
-    slope20 = _slope_pct(nifty["close"].ewm(span=20, adjust=False).mean())
-    slope50 = _slope_pct(nifty["close"].ewm(span=50, adjust=False).mean())
+    sma20 = nifty["close"].rolling(20, min_periods=20).mean()
+    sma50 = nifty["close"].rolling(50, min_periods=50).mean()
+    slope20 = _slope_pct(sma20)
+    slope50 = _slope_pct(sma50)
     adx = float(row["adx14"]) if pd.notna(row["adx14"]) else 0.0
-    close, ema20, ema50 = float(row["close"]), float(row["ema20"]), float(row["ema50"])
+    close = float(row["close"])
+    sma20_last, sma50_last = float(sma20.iloc[-1]), float(sma50.iloc[-1])
     positive = 0
     for frame in sector_indices.values():
         sector = _indicators(_validate_frame(frame, "sector index"))
         sr = sector.iloc[-1]
-        if float(sr["close"]) > float(sr["ema20"]) > float(sr["ema50"]):
+        if "timestamp" in sector.columns and "timestamp" in nifty.columns and sector.iloc[-1]["timestamp"].date() != nifty.iloc[-1]["timestamp"].date():
+            continue
+        sector_sma20 = sector["close"].rolling(20, min_periods=20).mean().iloc[-1]
+        sector_sma50 = sector["close"].rolling(50, min_periods=50).mean().iloc[-1]
+        if float(sr["close"]) > float(sector_sma20) > float(sector_sma50):
             positive += 1
     total = len(sector_indices)
     breadth = positive / total if total else 0.0
+    vix_session = vix.iloc[-1]["timestamp"].date() if "timestamp" in vix.columns else None
+    nifty_session = nifty.iloc[-1]["timestamp"].date() if "timestamp" in nifty.columns else None
+    if vix_session and nifty_session and vix_session != nifty_session:
+        raise ValueError("India VIX latest session does not match NIFTY 50.")
     reasons = [
-        f"NIFTY close {close:.2f}; EMA20/EMA50 {ema20:.2f}/{ema50:.2f}",
+        f"NIFTY close {close:.2f}; SMA20/SMA50 {sma20_last:.2f}/{sma50_last:.2f}",
         f"ADX(14) {adx:.1f}; EMA20 slope {slope20:.2f}%; EMA50 slope {slope50:.2f}%",
         f"India VIX {vix_value:.2f}; positive sectors {positive}/{total}",
     ]
     risk_off = vix_value >= 25 or (close < ema50 and slope50 < -0.15 and adx >= 18)
-    bullish = close > ema20 > ema50 and slope20 > 0 and slope50 > 0 and adx >= 18 and vix_value < 22 and (not total or breadth >= 0.5)
+    bullish = close > sma20_last > sma50_last and slope20 > 0 and slope50 > 0 and adx >= 18 and vix_value < 22 and total > 0 and breadth >= 0.5
     bias = EODBias.RISK_OFF if risk_off else EODBias.BULLISH_TREND if bullish else EODBias.MEAN_REVERTING
     return RegimeSnapshot(
         bias=bias, nifty_close=close, adx_14=round(adx, 2),
@@ -198,6 +214,7 @@ def build_eod_report(
     risk_budget = virtual_equity_inr * risk_per_trade_pct
     candidates: List[EODCandidate] = []
     rejected: Dict[str, str] = {}
+    advancers = decliners = unchanged = 0
     for raw_symbol, raw_frame in stock_daily.items():
         symbol = raw_symbol.strip().upper()
         try:
@@ -207,6 +224,13 @@ def build_eod_report(
                     raise ValueError("latest candle date does not match NIFTY session")
             row = stock.iloc[-1]
             close = float(row["close"])
+            session_change = close / float(stock["close"].iloc[-2]) - 1.0
+            if session_change > 0.0005:
+                advancers += 1
+            elif session_change < -0.0005:
+                decliners += 1
+            else:
+                unchanged += 1
             ema20, ema50, atr = float(row["ema20"]), float(row["ema50"]), float(row["atr14"])
             rvol = float(row["rvol20"]) if pd.notna(row["rvol20"]) else 0.0
             turnover = float(row["turnover20"]) if pd.notna(row["turnover20"]) else 0.0
@@ -271,6 +295,9 @@ def build_eod_report(
         bias=regime, universe_requested=len(stock_daily), universe_covered=len(stock_daily) - len(rejected),
         candidates=candidates, rejected_symbols=rejected, risk_per_trade_pct=risk_per_trade_pct*100,
         virtual_equity_inr=virtual_equity_inr,
+        advancers=advancers, decliners=decliners, unchanged=unchanged,
+        advance_decline_ratio=round(advancers / decliners, 3) if decliners else float(advancers),
+        market_breadth_pct=round(100 * advancers / max(1, advancers + decliners + unchanged), 2),
         data_warning="Coverage is only as complete as the supplied point-in-time NIFTY 500 constituent list and licensed EOD data.",
     )
 
