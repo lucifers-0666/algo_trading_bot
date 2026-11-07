@@ -76,14 +76,20 @@ class EODReport(BaseModel):
     data_warning: Optional[str] = None
 
 
-def _validate_frame(frame: pd.DataFrame, name: str, min_rows: int = 61) -> pd.DataFrame:
-    required = {"open", "high", "low", "close", "volume"}
+def _validate_frame(frame: pd.DataFrame, name: str, min_rows: int = 61, require_volume: bool = True) -> pd.DataFrame:
+    required = {"open", "high", "low", "close"}
+    if require_volume:
+        required.add("volume")
     missing = required.difference(frame.columns)
     if missing:
         raise ValueError(f"{name}: missing columns {sorted(missing)}")
     if len(frame) < min_rows:
         raise ValueError(f"{name}: requires at least {min_rows} daily bars; got {len(frame)}")
     out = frame.copy()
+    if "volume" not in out.columns:
+        out["volume"] = 0.0
+    elif not require_volume:
+        out["volume"] = out["volume"].fillna(0.0)
     if "timestamp" in out.columns:
         out["timestamp"] = pd.to_datetime(out["timestamp"], utc=True).dt.tz_convert("Asia/Kolkata")
         out = out.sort_values("timestamp")
@@ -135,8 +141,8 @@ def classify_eod_regime(
     sector_indices: Mapping[str, pd.DataFrame],
     india_vix_daily: pd.DataFrame,
 ) -> RegimeSnapshot:
-    nifty = _indicators(_validate_frame(nifty_daily, "NIFTY 50"))
-    vix = _validate_frame(india_vix_daily, "India VIX")
+    nifty = _indicators(_validate_frame(nifty_daily, "NIFTY 50", require_volume=False))
+    vix = _validate_frame(india_vix_daily, "India VIX", require_volume=False)
     row = nifty.iloc[-1]
     vix_value = float(vix.iloc[-1]["close"])
     sma20 = nifty["close"].rolling(20, min_periods=20).mean()
@@ -149,7 +155,7 @@ def classify_eod_regime(
     positive = 0
     valid_sector_count = 0
     for frame in sector_indices.values():
-        sector = _indicators(_validate_frame(frame, "sector index"))
+        sector = _indicators(_validate_frame(frame, "sector index", require_volume=False))
         sr = sector.iloc[-1]
         if "timestamp" in sector.columns and "timestamp" in nifty.columns and sector.iloc[-1]["timestamp"].date() != nifty.iloc[-1]["timestamp"].date():
             continue
