@@ -9,11 +9,14 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 import asyncio
 import json
+import logging
 import os
 import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 from fastapi import (
     FastAPI,
