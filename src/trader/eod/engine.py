@@ -30,11 +30,6 @@ class RegimeSnapshot(BaseModel):
     india_vix: float
     positive_sector_count: int
     sector_count: int
-    advancers: int = 0
-    decliners: int = 0
-    unchanged: int = 0
-    advance_decline_ratio: Optional[float] = None
-    market_breadth_pct: float = 0.0
     reasons: List[str] = Field(default_factory=list)
 
 
@@ -73,6 +68,11 @@ class EODReport(BaseModel):
     rejected_symbols: Dict[str, str] = Field(default_factory=dict)
     risk_per_trade_pct: float = 0.5
     virtual_equity_inr: float
+    advancers: int = 0
+    decliners: int = 0
+    unchanged: int = 0
+    advance_decline_ratio: Optional[float] = None
+    market_breadth_pct: float = 0.0
     data_warning: Optional[str] = None
 
 
