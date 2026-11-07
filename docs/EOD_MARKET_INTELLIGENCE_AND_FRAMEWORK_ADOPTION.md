@@ -90,7 +90,7 @@ React view should show the latest report and stale-data state, market regime, br
 
 ## 7. Automation and operational schedule
 
-Use the existing Windows-local deployment model. Prefer a single Windows Task Scheduler job invoking a CLI command after EOD data finalization, rather than starting an in-process scheduler in every Uvicorn reload worker. The command must be idempotent on (session_date, universe_version, config_hash). If duplicate runs occur, return the existing report unless an explicit audited force-refresh is requested.
+Use the existing Windows-local deployment model. Register the weekday job with powershell -ExecutionPolicy Bypass -File scripts/register_eod_task.ps1 (default 16:40 local time); it invokes scripts/run_eod_analysis.ps1. The FastAPI service and logged-in workstation session must be active. Prefer this single Windows Task Scheduler job over starting an in-process scheduler in every Uvicorn reload worker. The command must be idempotent on (session_date, universe_version, config_hash). If duplicate runs occur, return the existing report unless an explicit audited force-refresh is requested.
 
 Do not run on weekends/holidays. Do not generate actionable output when any required benchmark/VIX/constituent data is stale, missing, mismatched or synthetic. Synthetic fixtures are for tests only.
 
