@@ -71,7 +71,7 @@ class EODReport(BaseModel):
     data_warning: Optional[str] = None
 
 
-def _validate_frame(frame: pd.DataFrame, name: str, min_rows: int = 60) -> pd.DataFrame:
+def _validate_frame(frame: pd.DataFrame, name: str, min_rows: int = 61) -> pd.DataFrame:
     required = {"open", "high", "low", "close", "volume"}
     missing = required.difference(frame.columns)
     if missing:
@@ -194,7 +194,7 @@ def build_eod_report(
     nifty = _indicators(_validate_frame(nifty_daily, "NIFTY 50"))
     regime = classify_eod_regime(nifty_daily, sector_indices, india_vix_daily)
     benchmark = nifty["close"]
-    session_date = str(nifty.iloc[-1].get("timestamp", "latest-session"))
+    session_date = pd.Timestamp(nifty.iloc[-1]["timestamp"]).date().isoformat() if "timestamp" in nifty.columns else "latest-session"
     risk_budget = virtual_equity_inr * risk_per_trade_pct
     candidates: List[EODCandidate] = []
     rejected: Dict[str, str] = {}
