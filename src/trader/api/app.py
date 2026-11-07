@@ -10,6 +10,7 @@ from typing import Dict, Any, List, Optional
 import asyncio
 import json
 import logging
+import math
 import os
 import secrets
 import pandas as pd
@@ -1400,6 +1401,12 @@ def run_eod_analysis(req: EODRunRequest) -> Dict[str, Any]:
     symbols = sorted({s.strip().upper() for s in req.universe_symbols if s.strip()})
     if not symbols:
         raise HTTPException(status_code=422, detail="The supplied universe contains no valid symbols.")
+    tick_sizes = {key.strip().upper(): float(value) for key, value in req.tick_size_by_symbol.items()}
+    missing_tick_sizes = sorted(set(symbols) - set(tick_sizes))
+    if missing_tick_sizes:
+        raise HTTPException(status_code=422, detail=f"Monthly NSE tick-size data is required for every symbol; missing {len(missing_tick_sizes)} entries.")
+    if any(not math.isfinite(value) or value <= 0 for value in tick_sizes.values()):
+        raise HTTPException(status_code=422, detail="Tick sizes must be finite positive numbers.")
 
     source_labels: set[str] = set()
 
@@ -1452,6 +1459,7 @@ def run_eod_analysis(req: EODRunRequest) -> Dict[str, Any]:
             virtual_equity_inr=accountant.total_equity,
             risk_per_trade_pct=0.005,
             max_candidates=req.max_candidates,
+            tick_size_by_symbol=tick_sizes,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=f"EOD analysis rejected invalid/incomplete data: {exc}")
