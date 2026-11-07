@@ -1,3 +1,4 @@
+from trader.backtest.costs import BrokerProfile
 """Pydantic Request and Response Schemas for the FastAPI REST API."""
 
 from typing import List, Optional, Dict, Any
@@ -123,5 +124,6 @@ class EODRunRequest(BaseModel):
     india_vix_symbol: str = "^INDIAVIX"
     sector_index_symbols: Dict[str, str] = Field(default_factory=dict)
     tick_size_by_symbol: Dict[str, float] = Field(default_factory=dict)
+    broker_profile: BrokerProfile = BrokerProfile.ANGEL_ONE
     max_candidates: int = Field(default=20, ge=1, le=100)
     generate_ollama_narratives: bool = False
