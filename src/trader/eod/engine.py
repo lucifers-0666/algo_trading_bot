@@ -346,6 +346,7 @@ def build_eod_report(
                 projected_pnl_target_2_inr=round(quantity * (target2-trigger), 2),
                 projected_net_pnl_target_1_inr=net_target1,
                 projected_net_pnl_target_2_inr=net_target2,
+                status="PENDING_REVIEW" if regime.bias == EODBias.BULLISH_TREND else "WATCH_ONLY_REGIME_CHOP",
                 rationale_facts=[
                     f"{pattern.replace('_', ' ')} with close {close:.2f} near EMA support",
                     f"Relative strength vs NIFTY: 20-session {rs20*100:.2f}%, 60-session {rs60*100:.2f}%",
