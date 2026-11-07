@@ -69,6 +69,13 @@ class RiskProtectionManager:
                 del self._symbol_cooldowns[sym]
                 logger.info(f"Cooldown ended for symbol {sym}.")
 
+    def record_trade(self, trade: Any) -> None:
+        """Helper to record trade result directly from a Trade model or sell event."""
+        if hasattr(trade, "side") and hasattr(trade.side, "value") and trade.side.value == "SELL":
+            pnl = getattr(trade, "realized_pnl", 0.0)
+            sym = getattr(trade, "symbol", "")
+            self.record_trade_result(symbol=sym, pnl_inr=pnl)
+
     def record_trade_result(
         self,
         symbol: str,

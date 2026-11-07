@@ -15,7 +15,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, Query, Body, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+    Body,
+    WebSocket,
+    WebSocketDisconnect,
+    Request,
+    Header,
+    Depends,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 
 from trader.domain.models import (
@@ -112,8 +123,74 @@ app.add_middleware(
     allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Accept", "Content-Type"],
+    allow_headers=["Accept", "Content-Type", "Authorization", "X-API-Token"],
 )
+
+
+def verify_localhost(request: Request) -> None:
+    """Enforces that all REST requests originate strictly from localhost."""
+    client_host = request.client.host if request.client else ""
+    if client_host not in ("127.0.0.1", "localhost", "::1", "testclient"):
+        raise HTTPException(
+            status_code=403,
+            detail="Access forbidden: Northstar workstation is restricted to localhost.",
+        )
+
+
+def verify_api_token(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    x_api_token: Optional[str] = Header(None),
+) -> None:
+    """Verifies that mutating operations are authorized with NORTHSTAR_API_TOKEN when configured."""
+    verify_localhost(request)
+    expected_token = os.getenv("NORTHSTAR_API_TOKEN")
+    if not expected_token:
+        return
+
+    token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+    elif x_api_token:
+        token = x_api_token.strip()
+    elif "token" in request.query_params:
+        token = request.query_params.get("token")
+
+    if not token or token != expected_token:
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized: Invalid or missing API token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+async def verify_ws_auth(websocket: WebSocket) -> bool:
+    """Authenticates WebSocket connections and enforces localhost origin."""
+    client_host = websocket.client.host if websocket.client else ""
+    if client_host not in ("127.0.0.1", "localhost", "::1", "testclient"):
+        await websocket.close(code=1008, reason="Localhost only")
+        return False
+
+    expected_token = os.getenv("NORTHSTAR_API_TOKEN")
+    if not expected_token:
+        return True
+
+    token = websocket.query_params.get("token")
+    if not token:
+        auth = websocket.headers.get("authorization")
+        if auth and auth.lower().startswith("bearer "):
+            token = auth[7:].strip()
+        else:
+            token = websocket.headers.get("x-api-token")
+
+    if not token or token != expected_token:
+        await websocket.close(
+            code=1008,
+            reason="Unauthorized: Invalid or missing API token",
+        )
+        return False
+
+    return True
 
 # -----------------------------------------------------------------------------
 # Module Singletons
@@ -375,7 +452,7 @@ def get_market_depth(symbol: str) -> Dict[str, Any]:
         return dump
 
 
-@app.post("/api/v1/market-data/configure", tags=["market"])
+@app.post("/api/v1/market-data/configure", tags=["market"], dependencies=[Depends(verify_api_token)])
 def configure_market_data(req: AngelOneConfigureRequest) -> Dict[str, Any]:
     """Configures Angel One SmartAPI credentials and authenticates session."""
     global angelone_adapter, ACTIVE_DATA_PROVIDER
@@ -407,7 +484,7 @@ def configure_market_data(req: AngelOneConfigureRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to configure Angel One: {str(exc)}")
 
 
-@app.post("/api/v1/market-data/select-provider", tags=["market"])
+@app.post("/api/v1/market-data/select-provider", tags=["market"], dependencies=[Depends(verify_api_token)])
 def select_market_data_provider(req: ProviderSelectRequest) -> Dict[str, Any]:
     """Switches active market data provider (angelone, dhan, truedata, csv, synthetic)."""
     global ACTIVE_DATA_PROVIDER
@@ -517,6 +594,8 @@ def get_instrument_details(symbol: str) -> Dict[str, Any]:
 @app.websocket("/api/v1/ws/quotes/{symbol}")
 async def websocket_symbol_quotes(websocket: WebSocket, symbol: str):
     """Streams live quotes and tick aggregations for a single equity symbol."""
+    if not await verify_ws_auth(websocket):
+        return
     await websocket.accept()
     sym = symbol.strip().upper()
     provider = get_market_provider()
@@ -549,6 +628,8 @@ async def websocket_symbol_quotes(websocket: WebSocket, symbol: str):
 @app.websocket("/api/v1/ws/live")
 async def websocket_live_stream(websocket: WebSocket):
     """Streams active feed health, portfolio summary, and market pulse every second."""
+    if not await verify_ws_auth(websocket):
+        return
     await websocket.accept()
     try:
         while True:
@@ -719,7 +800,7 @@ def propose_order(req: OrderProposalRequest) -> Dict[str, Any]:
     }
 
 
-@app.post("/api/v1/paper/execute", tags=["paper_trading"])
+@app.post("/api/v1/paper/execute", tags=["paper_trading"], dependencies=[Depends(verify_api_token)])
 def execute_order(req: OrderExecuteRequest) -> Dict[str, Any]:
     """Executes a simulated paper order with institutional statutory costs and risk re-validation."""
     sym = req.symbol.strip().upper()
@@ -764,7 +845,7 @@ def execute_order(req: OrderExecuteRequest) -> Dict[str, Any]:
     }
 
 
-@app.post("/api/v1/paper/reset", tags=["paper_trading"])
+@app.post("/api/v1/paper/reset", tags=["paper_trading"], dependencies=[Depends(verify_api_token)])
 def reset_virtual_account(req: ResetAccountRequest) -> Dict[str, Any]:
     """Resets paper account balances and positions to initial virtual capital (₹10,000)."""
     success = accountant.reset_account(confirmation=req.confirmation)
@@ -1015,7 +1096,7 @@ def get_audit_logs(limit: int = Query(50, ge=1, le=200)) -> List[Dict[str, Any]]
     return [l.model_dump() for l in logs]
 
 
-@app.post("/api/v1/risk/kill-switch", tags=["risk"])
+@app.post("/api/v1/risk/kill-switch", tags=["risk"], dependencies=[Depends(verify_api_token)])
 def set_kill_switch(req: KillSwitchRequest) -> Dict[str, Any]:
     """Engages or disengages the emergency trading kill switch."""
     if req.action.lower() == "engage":
@@ -1167,7 +1248,7 @@ def get_protection_status() -> Dict[str, Any]:
     return status.model_dump()
 
 
-@app.post("/api/v1/strategies/protections/reset", tags=["strategies"])
+@app.post("/api/v1/strategies/protections/reset", tags=["strategies"], dependencies=[Depends(verify_api_token)])
 def reset_protections() -> Dict[str, Any]:
     """Manually resets active consecutive loss locks and cooldown periods."""
     protection_mgr.manual_reset()
@@ -1222,28 +1303,28 @@ def get_bot_status() -> dict[str, Any]:
     return auto_trader.get_status()
 
 
-@app.post("/api/v1/bot/start", tags=["bot"])
+@app.post("/api/v1/bot/start", tags=["bot"], dependencies=[Depends(verify_api_token)])
 def start_bot() -> dict[str, Any]:
     """Starts the autonomous paper trading background execution loop."""
     auto_trader.start()
     return {"status": "started", "message": "Autonomous paper trading daemon started."}
 
 
-@app.post("/api/v1/bot/stop", tags=["bot"])
+@app.post("/api/v1/bot/stop", tags=["bot"], dependencies=[Depends(verify_api_token)])
 def stop_bot() -> dict[str, Any]:
     """Stops the autonomous paper trading background execution loop."""
     auto_trader.stop()
     return {"status": "stopped", "message": "Autonomous paper trading daemon stopped."}
 
 
-@app.post("/api/v1/bot/step", tags=["bot"])
+@app.post("/api/v1/bot/step", tags=["bot"], dependencies=[Depends(verify_api_token)])
 def step_bot() -> dict[str, Any]:
     """Executes a single evaluation and paper trading cycle on demand."""
     result = auto_trader.run_iteration()
     return {"status": "completed", "result": result}
 
 
-@app.post("/api/v1/bot/config", tags=["bot"])
+@app.post("/api/v1/bot/config", tags=["bot"], dependencies=[Depends(verify_api_token)])
 def config_bot(force_market_open: Optional[bool] = Body(None), interval: Optional[int] = Body(None)) -> dict[str, Any]:
     """Updates auto-trader operating mode parameters."""
     if force_market_open is not None:

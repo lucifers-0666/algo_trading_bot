@@ -11,7 +11,7 @@ import {
   Activity,
   Radio,
 } from "lucide-react";
-import { getInstrumentCandles, getMarketDepth } from "../lib/api";
+import { getInstrumentCandles, getMarketDepth, getWsTokenParam } from "../lib/api";
 import { CandlestickChart } from "../components/CandlestickChart";
 import { Badge } from "../components/Badge";
 import type { CandleRecord } from "../lib/types";
@@ -73,7 +73,7 @@ export const StockResearchView: React.FC<StockResearchViewProps> = ({
     const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
     // Connect to backend port 8000 or relative proxy
     const wsHost = window.location.port === "5173" ? "127.0.0.1:8000" : window.location.host;
-    const wsUrl = `${wsProto}//${wsHost}/api/v1/ws/quotes/${symbol}`;
+    const wsUrl = `${wsProto}//${wsHost}/api/v1/ws/quotes/${symbol}${getWsTokenParam()}`;
 
     try {
       ws = new WebSocket(wsUrl);

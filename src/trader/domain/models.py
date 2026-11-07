@@ -246,13 +246,27 @@ class Position(BaseModel):
     quantity: int = Field(default=0, ge=0)
     average_entry_price: float = Field(default=0.0, ge=0.0)
     current_price: float = Field(default=0.0, ge=0.0)
+    stop_loss: Optional[float] = None
+    target: Optional[float] = None
+    highest_price: float = Field(default=0.0, ge=0.0)
+    trailing_stop_atr_mult: Optional[float] = None
+    trailing_stop_pct: Optional[float] = None
+    holding_bars: int = 0
     unrealized_pnl: float = 0.0
     realized_pnl: float = 0.0
     open_timestamp: datetime = Field(default_factory=lambda: datetime.now(IST))
     updated_timestamp: datetime = Field(default_factory=lambda: datetime.now(IST))
 
+    @property
+    def average_price(self) -> float:
+        return self.average_entry_price
+
     def update_market_price(self, ltp: float) -> None:
         self.current_price = ltp
+        if self.highest_price == 0.0:
+            self.highest_price = max(self.average_entry_price, ltp)
+        elif ltp > self.highest_price:
+            self.highest_price = ltp
         if self.quantity > 0:
             self.unrealized_pnl = round((ltp - self.average_entry_price) * self.quantity, 2)
         else:

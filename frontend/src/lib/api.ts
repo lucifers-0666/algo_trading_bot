@@ -40,12 +40,33 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
+export function getWsTokenParam(): string {
+  const token =
+    (import.meta.env.VITE_API_TOKEN as string | undefined) ||
+    (typeof window !== "undefined" ? window.localStorage.getItem("northstar_api_token") : null);
+  return token ? `?token=${encodeURIComponent(token)}` : "";
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token =
+    (import.meta.env.VITE_API_TOKEN as string | undefined) ||
+    (typeof window !== "undefined" ? window.localStorage.getItem("northstar_api_token") : null);
+  if (token) {
+    return {
+      Authorization: `Bearer ${token}`,
+      "X-API-Token": token,
+    };
+  }
+  return {};
+}
+
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   const response = await fetch(url, {
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
       ...(options?.headers ?? {}),
     },
     ...options,

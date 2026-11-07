@@ -52,6 +52,9 @@ class BacktestEngine:
         max_portfolio_exposure_pct: float = 0.50,
         slippage_bps: float = 10.0,
         brokerage_flat: float = 20.0,
+        trailing_stop_enabled: bool = False,
+        trailing_stop_atr_mult: float = 2.0,
+        max_holding_bars: Optional[int] = None,
     ):
         self.strategy = strategy or BaselineSwingStrategy()
         self.initial_capital = initial_capital
@@ -61,6 +64,9 @@ class BacktestEngine:
         self.max_portfolio_exposure_pct = max_portfolio_exposure_pct
         self.slippage_bps = slippage_bps
         self.brokerage_flat = brokerage_flat
+        self.trailing_stop_enabled = trailing_stop_enabled or getattr(self.strategy, "trailing_stop_enabled", False)
+        self.trailing_stop_atr_mult = trailing_stop_atr_mult
+        self.max_holding_bars = max_holding_bars or getattr(self.strategy, "max_holding_candles", None)
 
     def run(self, symbol_candles_map: Dict[str, List[Candle]]) -> BacktestResult:
         """Executes chronological multi-symbol simulation across all candle dates."""
@@ -150,6 +156,7 @@ class BacktestEngine:
                             "quantity": sizing.quantity,
                             "stop_loss": stop_loss,
                             "target": ord_req.get("target"),
+                            "highest_price": open_price,
                             "entry_costs": cost_breakdown.total_costs_inr,
                             "entry_slippage": cost_breakdown.slippage_inr,
                             "holding_bars": 0,
@@ -182,6 +189,7 @@ class BacktestEngine:
                 if (bar_high == bar_low and bar_open == bar_close) or bar_vol <= 0:
                     continue
 
+                # Active stop-loss and profit target coming into this bar (no look-ahead)
                 stop_loss = t_data.get("stop_loss")
                 target = t_data.get("target")
 
@@ -194,22 +202,22 @@ class BacktestEngine:
                 target_hit = target is not None and bar_high >= target
 
                 if stop_hit and target_hit:
-                    # Collision: both boundaries touched in same candle
-                    # Conservative assumption: assume stop-loss was triggered first
                     exit_triggered = True
                     exit_reason = "Stop-loss hit (Intrabar collision, conservative assumption)"
-                    # Gap-through-stop check
                     nominal_exit = bar_open if bar_open <= stop_loss else stop_loss
                 elif stop_hit:
                     exit_triggered = True
-                    exit_reason = "Stop-loss triggered"
-                    # Gap-through-stop: if open opened below stop, execute at open
+                    is_trailing = stop_loss > t_data["entry_price"]
+                    exit_reason = "Trailing-stop triggered" if is_trailing else "Stop-loss triggered"
                     nominal_exit = bar_open if bar_open <= stop_loss else stop_loss
                 elif target_hit:
                     exit_triggered = True
                     exit_reason = "Target reached"
-                    # Gap-up through target
                     nominal_exit = bar_open if bar_open >= target else target
+                elif self.max_holding_bars is not None and t_data["holding_bars"] >= self.max_holding_bars:
+                    exit_triggered = True
+                    exit_reason = f"Time-stop reached ({t_data['holding_bars']} bars)"
+                    nominal_exit = bar_open
                 else:
                     # 2. Slice historical slice up to current bar to evaluate strategy technical exit on close
                     slice_df = df_sym[df_sym["timestamp"] <= current_date]
@@ -224,6 +232,19 @@ class BacktestEngine:
                         exit_triggered = True
                         nominal_exit = exit_sig.metrics.get("exit_price", bar_close)
                         exit_reason = exit_sig.reason
+
+                # Ratchet trailing stop on bar close ONLY if position survived this bar
+                if not exit_triggered:
+                    if bar_high > t_data.get("highest_price", 0.0):
+                        t_data["highest_price"] = bar_high
+                    if self.trailing_stop_enabled:
+                        atr = float(bar.get("atr_14", 0.0))
+                        if atr > 0:
+                            candidate_stop = round(t_data["highest_price"] - (atr * self.trailing_stop_atr_mult), 2)
+                        else:
+                            candidate_stop = round(t_data["highest_price"] * 0.97, 2)
+                        if t_data.get("stop_loss") is None or candidate_stop > t_data["stop_loss"]:
+                            t_data["stop_loss"] = candidate_stop
 
                 if exit_triggered:
                     cost_breakdown = calculate_trade_costs(

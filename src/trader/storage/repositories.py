@@ -364,18 +364,67 @@ class PositionRepository:
     def __init__(self, db: DatabaseManager):
         self.db = db
 
+    def _ensure_position_schema(self, conn) -> None:
+        """Ensures positions table exists and migrates columns if absent."""
+        try:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS positions (
+                    symbol TEXT PRIMARY KEY,
+                    quantity INTEGER NOT NULL,
+                    average_entry_price REAL NOT NULL,
+                    current_price REAL NOT NULL,
+                    stop_loss REAL,
+                    target REAL,
+                    highest_price REAL DEFAULT 0.0,
+                    trailing_stop_atr_mult REAL,
+                    trailing_stop_pct REAL,
+                    holding_bars INTEGER DEFAULT 0,
+                    unrealized_pnl REAL NOT NULL DEFAULT 0.0,
+                    realized_pnl REAL NOT NULL DEFAULT 0.0,
+                    open_timestamp TEXT NOT NULL,
+                    updated_timestamp TEXT NOT NULL
+                );
+                """
+            )
+            cursor = conn.execute("PRAGMA table_info(positions);")
+            cols = {r["name"] for r in cursor.fetchall()}
+            if "stop_loss" not in cols:
+                conn.execute("ALTER TABLE positions ADD COLUMN stop_loss REAL;")
+            if "target" not in cols:
+                conn.execute("ALTER TABLE positions ADD COLUMN target REAL;")
+            if "highest_price" not in cols:
+                conn.execute("ALTER TABLE positions ADD COLUMN highest_price REAL DEFAULT 0.0;")
+            if "trailing_stop_atr_mult" not in cols:
+                conn.execute("ALTER TABLE positions ADD COLUMN trailing_stop_atr_mult REAL;")
+            if "trailing_stop_pct" not in cols:
+                conn.execute("ALTER TABLE positions ADD COLUMN trailing_stop_pct REAL;")
+            if "holding_bars" not in cols:
+                conn.execute("ALTER TABLE positions ADD COLUMN holding_bars INTEGER DEFAULT 0;")
+        except Exception:
+            pass
+
     def save_position(self, pos: Position) -> None:
         conn = self.db.get_connection()
         try:
+            self._ensure_position_schema(conn)
             query = """
             INSERT INTO positions (
                 symbol, quantity, average_entry_price, current_price,
+                stop_loss, target, highest_price, trailing_stop_atr_mult,
+                trailing_stop_pct, holding_bars,
                 unrealized_pnl, realized_pnl, open_timestamp, updated_timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(symbol) DO UPDATE SET
                 quantity = excluded.quantity,
                 average_entry_price = excluded.average_entry_price,
                 current_price = excluded.current_price,
+                stop_loss = excluded.stop_loss,
+                target = excluded.target,
+                highest_price = excluded.highest_price,
+                trailing_stop_atr_mult = excluded.trailing_stop_atr_mult,
+                trailing_stop_pct = excluded.trailing_stop_pct,
+                holding_bars = excluded.holding_bars,
                 unrealized_pnl = excluded.unrealized_pnl,
                 realized_pnl = excluded.realized_pnl,
                 updated_timestamp = excluded.updated_timestamp;
@@ -387,12 +436,19 @@ class PositionRepository:
                     pos.quantity,
                     pos.average_entry_price,
                     pos.current_price,
+                    pos.stop_loss,
+                    pos.target,
+                    pos.highest_price,
+                    pos.trailing_stop_atr_mult,
+                    pos.trailing_stop_pct,
+                    pos.holding_bars,
                     pos.unrealized_pnl,
                     pos.realized_pnl,
                     pos.open_timestamp.isoformat(),
                     pos.updated_timestamp.isoformat(),
                 ),
             )
+            conn.commit()
         finally:
             conn.close()
 
@@ -400,21 +456,30 @@ class PositionRepository:
         conn = self.db.get_connection()
         try:
             conn.execute("DELETE FROM positions WHERE symbol = ?", (symbol.strip().upper(),))
+            conn.commit()
         finally:
             conn.close()
 
     def get_all_positions(self) -> List[Position]:
         conn = self.db.get_connection()
         try:
+            self._ensure_position_schema(conn)
             cursor = conn.execute("SELECT * FROM positions WHERE quantity > 0")
             positions = []
             for r in cursor.fetchall():
+                keys = r.keys()
                 positions.append(
                     Position(
                         symbol=r["symbol"],
                         quantity=r["quantity"],
                         average_entry_price=r["average_entry_price"],
                         current_price=r["current_price"],
+                        stop_loss=r["stop_loss"] if "stop_loss" in keys else None,
+                        target=r["target"] if "target" in keys else None,
+                        highest_price=r["highest_price"] if "highest_price" in keys else 0.0,
+                        trailing_stop_atr_mult=r["trailing_stop_atr_mult"] if "trailing_stop_atr_mult" in keys else None,
+                        trailing_stop_pct=r["trailing_stop_pct"] if "trailing_stop_pct" in keys else None,
+                        holding_bars=r["holding_bars"] if "holding_bars" in keys else 0,
                         unrealized_pnl=r["unrealized_pnl"],
                         realized_pnl=r["realized_pnl"],
                         open_timestamp=r["open_timestamp"],
@@ -429,6 +494,7 @@ class PositionRepository:
         conn = self.db.get_connection()
         try:
             conn.execute("DELETE FROM positions")
+            conn.commit()
         finally:
             conn.close()
 

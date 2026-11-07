@@ -19,7 +19,7 @@
 | **Database** | SQLite 3 (`data/storage/paper_trader.db`) with WAL Mode, ACID Transactions, & Repository Layer |
 | **Frontend Workstation** | React 19 + TypeScript + Vite across 22 dedicated quantitative views |
 | **Backend REST API** | FastAPI running on loopback (`127.0.0.1:8000`) across 54 typed endpoints + WebSockets |
-| **Automated Test Suite** | **137 passed / 0 failed / 100% pass rate** |
+| **Automated Test Suite** | **148 passed / 0 failed / 100% pass rate** |
 | **Market Data Adapter** | Angel One SmartAPI (Free Market Data, OHLCV, 5-Depth Order Book) + Dhan + TrueData + CSV + Synthetic |
 | **Next-Session Forecasting** | Multi-factor quantitative ensemble + Volatility cones + Immutable Ledger |
 | **Broker Cost Modeling** | Multi-Broker Engine (Angel One, Zerodha, Dhan, Fyers) with DP charges & Breakeven Exit |
@@ -65,8 +65,8 @@
   - No look-ahead bias: signals evaluated on bar close ($t$), executed at next bar open ($t+1$).
 
 - [x] **Phase 7: Risk Management & Persistent Kill Switch**
-  - Position sizing engine enforcing 2.0% risk budget, integer shares, 25% single-stock cap, and cash limits.
-  - Hard pre-trade checks: max 5 open positions, 3.0% daily loss limit calculated from today's starting equity (`day_starting_equity`).
+  - Position sizing engine enforcing 0.5% risk budget, integer shares, 25% single-stock cap, and cash limits.
+  - Hard pre-trade checks: max 2 open positions, 1.0% daily loss limit calculated from today's starting equity (`day_starting_equity`).
   - Pre-fill atomic revalidation in `VirtualPaperBroker` preventing race conditions.
   - Persistent disk-backed kill switch with fail-closed safety (missing state defaults to ENGAGED).
 

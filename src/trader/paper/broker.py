@@ -74,6 +74,8 @@ class VirtualPaperBroker:
         quantity: Optional[int] = None,
         order_type: OrderType = OrderType.MARKET,
         feed_freshness: Optional[FreshnessReport] = None,
+        target: Optional[float] = None,
+        trailing_stop_atr_mult: Optional[float] = None,
     ) -> Tuple[Order, Optional[Trade], RiskAssessment]:
         """Submits, risk-checks, and executes a simulated paper order."""
         sym = symbol.strip().upper()
@@ -171,7 +173,12 @@ class VirtualPaperBroker:
         # 4. Apply fill to virtual portfolio ledger. The accountant performs
         # final cash/inventory validation before mutating the simulated account.
         try:
-            self.accountant.apply_fill(trade)
+            self.accountant.apply_fill(
+                trade,
+                stop_loss=stop_loss,
+                target=target,
+                trailing_stop_atr_mult=trailing_stop_atr_mult,
+            )
         except ValueError as exc:
             reason = f"Virtual fill rejected: {exc}"
             assessment.approved = False

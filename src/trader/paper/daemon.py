@@ -45,7 +45,10 @@ class AutonomousPaperTradingDaemon:
         self.scan_interval_seconds = scan_interval_seconds
 
         self._is_running = False
-        self._force_market_open = True  # Allows continuous simulated paper trading
+        self._force_market_open = False  # Defaults to False: explicit opt-in only for testing
+        self.trailing_stop_enabled = True
+        self.trailing_stop_atr_mult = 2.0
+        self.max_holding_bars: Optional[int] = 30
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._last_scan_time: Optional[datetime] = None
@@ -185,30 +188,51 @@ class AutonomousPaperTradingDaemon:
                 self._log_event("PROTECTION", sym, f"Symbol {sym} is in cooldown after stop-loss exit. Skipping.")
                 continue
 
-            # Run decision engine
+            # Run decision engine on bar close (t)
             try:
                 dossier = self.decision_engine.evaluate(
                     symbol=sym,
                     strategy_name="baseline",
                     provider=provider,
+                    portfolio=self.broker.accountant.get_portfolio_state(),
+                    open_positions=list(self.broker.accountant.positions.values()),
                 )
             except Exception as e:
                 logger.warning(f"Failed to evaluate decision for {sym}: {e}")
                 continue
 
             # High conviction threshold: >= 60 and APPROVE
-            if dossier.action == "APPROVE" and dossier.conviction_score >= 60.0:
-                current_price = cand.ltp
+            if dossier.action in ("APPROVE", "APPROVE_PAPER_BUY") and dossier.conviction_score >= 60.0:
+                # Real Feed Freshness Verification on latest quote (t+1 entry fill)
+                try:
+                    quote = provider.get_latest_quote(sym)
+                    source_label = quote.source.value if hasattr(quote, "source") else "UNKNOWN"
+                    freshness = evaluate_feed_freshness(
+                        last_update=quote.timestamp,
+                        source_type=source_label,
+                        is_configured=getattr(provider, "is_configured", True),
+                        is_connected=getattr(provider, "_is_connected", True),
+                        force_market_open=self._force_market_open,
+                    )
+                except Exception as e:
+                    self._log_event(
+                        "DATA_ERROR_GUARD",
+                        sym,
+                        f"Live quote retrieval failed for {sym}: {e}. Halting auto-buy entry.",
+                    )
+                    continue
+
+                if not freshness.is_actionable:
+                    self._log_event(
+                        "STALE_FEED_GUARD",
+                        sym,
+                        f"Skipping auto-buy for {sym}: Data feed {freshness.status.value} is not actionable ({freshness.message}). Forbidding entry on stale data.",
+                    )
+                    continue
+
+                current_price = quote.ltp
                 stop_loss = dossier.stop_loss or round(current_price * 0.97, 2)
                 target = dossier.target or round(current_price * 1.06, 2)
-
-                # Feed freshness check
-                freshness = FreshnessReport(
-                    status=FeedStatus.HEALTHY,
-                    latency_seconds=0.5,
-                    is_actionable=True,
-                    message="Auto-trader fresh quote verified",
-                )
 
                 try:
                     order, trade, assessment = self.broker.submit_simulated_order(
@@ -216,27 +240,32 @@ class AutonomousPaperTradingDaemon:
                         side=OrderSide.BUY,
                         price=current_price,
                         stop_loss=stop_loss,
+                        target=target,
+                        trailing_stop_atr_mult=self.trailing_stop_atr_mult if self.trailing_stop_enabled else None,
                         feed_freshness=freshness,
                     )
 
                     if assessment.approved and trade:
                         self._total_auto_trades += 1
                         self.protection_manager.record_trade(trade)
+                        forced_tag = " [FORCED_MARKET_OPEN]" if self._force_market_open else ""
                         executed_orders.append({
                             "symbol": sym,
                             "quantity": trade.quantity,
                             "price": trade.price,
                             "conviction": dossier.conviction_score,
+                            "forced_market_open": self._force_market_open,
                         })
                         self._log_event(
                             "AUTO_BUY",
                             sym,
-                            f"Auto paper BUY executed: {trade.quantity} shares of {sym} at ₹{trade.price:.2f} (Conviction: {dossier.conviction_score}/100, Stop: ₹{stop_loss:.2f})",
+                            f"Auto paper BUY executed{forced_tag}: {trade.quantity} shares of {sym} at ₹{trade.price:.2f} (Conviction: {dossier.conviction_score}/100, Stop: ₹{stop_loss:.2f})",
                             {
                                 "order_id": order.order_id,
                                 "quantity": trade.quantity,
                                 "price": trade.price,
                                 "conviction": dossier.conviction_score,
+                                "forced_market_open": self._force_market_open,
                             },
                         )
                         # Avoid opening too many positions in a single cycle
@@ -275,6 +304,7 @@ class AutonomousPaperTradingDaemon:
                     source_type=source_label,
                     is_configured=getattr(provider, "is_configured", True),
                     is_connected=getattr(provider, "_is_connected", True),
+                    force_market_open=self._force_market_open,
                 )
                 if not freshness.is_actionable:
                     self._log_event(
@@ -292,34 +322,79 @@ class AutonomousPaperTradingDaemon:
                 )
                 continue
 
-            # Update unrealized P&L
+            # Update position mark-to-market and holding count
+            pos.holding_bars += 1
+            pos.update_market_price(current_price)
             self.broker.accountant.update_unrealized_pnl(sym, current_price)
 
-            # Check stop-loss
-            if current_price <= pos.stop_loss:
-                try:
-                    order, trade, _ = self.broker.submit_simulated_order(
-                        symbol=sym,
-                        side=OrderSide.SELL,
-                        price=current_price,
-                        quantity=pos.quantity,
-                    )
-                    if trade:
-                        self._total_auto_trades += 1
-                        self.protection_manager.record_trade(trade)
-                        closed.append({"symbol": sym, "reason": "STOP_LOSS", "price": current_price})
-                        self._log_event(
-                            "AUTO_SELL_STOP",
-                            sym,
-                            f"Stop-loss hit for {sym} at ₹{current_price:.2f} (Stop was ₹{pos.stop_loss:.2f}). Closed {pos.quantity} shares.",
-                            {"realized_pnl": trade.realized_pnl},
-                        )
-                except Exception as e:
-                    logger.error(f"Failed to execute stop-loss sell for {sym}: {e}")
-                continue
+            # ATR trailing stop ratcheting (monotonically non-decreasing)
+            if self.trailing_stop_enabled:
+                atr = None
+                mult = pos.trailing_stop_atr_mult or self.trailing_stop_atr_mult or 2.0
+                if hasattr(provider, "get_historical_candles"):
+                    try:
+                        candles = provider.get_historical_candles(sym)
+                        if candles and len(candles) >= 14:
+                            from trader.indicators.technical import TechnicalIndicatorEngine
+                            df = TechnicalIndicatorEngine.candles_to_dataframe(candles)
+                            df = TechnicalIndicatorEngine.add_atr(df, period=14)
+                            last_atr = float(df["atr_14"].iloc[-1])
+                            if last_atr > 0:
+                                atr = last_atr
+                    except Exception:
+                        pass
 
-            # Check profit target
-            if pos.target and current_price >= pos.target:
+                if atr is not None and atr > 0:
+                    candidate_stop = round(pos.highest_price - (atr * mult), 2)
+                else:
+                    candidate_stop = round(pos.highest_price * 0.97, 2)
+
+                if pos.stop_loss is None or candidate_stop > pos.stop_loss:
+                    old_stop = pos.stop_loss
+                    pos.stop_loss = candidate_stop
+                    if self.broker.accountant.position_repo:
+                        self.broker.accountant.position_repo.save_position(pos)
+                    if old_stop is not None and candidate_stop > old_stop:
+                        self._log_event(
+                            "TRAILING_STOP_UPDATE",
+                            sym,
+                            f"Trailing stop ratcheted up for {sym}: ₹{old_stop:.2f} -> ₹{candidate_stop:.2f} (High: ₹{pos.highest_price:.2f})",
+                            {"highest_price": pos.highest_price, "new_stop": candidate_stop},
+                        )
+
+            # Check exit conditions
+            exit_triggered = False
+            exit_reason = ""
+            event_type = ""
+            exit_msg = ""
+
+            # 1. Stop-Loss / Trailing Stop
+            if pos.stop_loss is not None and current_price <= pos.stop_loss:
+                exit_triggered = True
+                is_trailing = pos.stop_loss > pos.average_entry_price
+                exit_reason = "TRAILING_STOP" if is_trailing else "STOP_LOSS"
+                event_type = "AUTO_SELL_TRAILING_STOP" if is_trailing else "AUTO_SELL_STOP"
+                exit_msg = (
+                    f"Trailing-stop hit for {sym} at ₹{current_price:.2f} (Stop was ₹{pos.stop_loss:.2f}). Closed {pos.quantity} shares."
+                    if is_trailing
+                    else f"Stop-loss hit for {sym} at ₹{current_price:.2f} (Stop was ₹{pos.stop_loss:.2f}). Closed {pos.quantity} shares."
+                )
+
+            # 2. Profit target
+            elif pos.target is not None and current_price >= pos.target:
+                exit_triggered = True
+                exit_reason = "PROFIT_TARGET"
+                event_type = "AUTO_SELL_TARGET"
+                exit_msg = f"Profit target reached for {sym} at ₹{current_price:.2f} (Target was ₹{pos.target:.2f}). Closed {pos.quantity} shares."
+
+            # 3. Time stop
+            elif self.max_holding_bars is not None and pos.holding_bars >= self.max_holding_bars:
+                exit_triggered = True
+                exit_reason = "TIME_STOP"
+                event_type = "AUTO_SELL_TIME_STOP"
+                exit_msg = f"Time-stop reached for {sym} after {pos.holding_bars} evaluation cycles. Closed {pos.quantity} shares at ₹{current_price:.2f}."
+
+            if exit_triggered:
                 try:
                     order, trade, _ = self.broker.submit_simulated_order(
                         symbol=sym,
@@ -330,15 +405,25 @@ class AutonomousPaperTradingDaemon:
                     if trade:
                         self._total_auto_trades += 1
                         self.protection_manager.record_trade(trade)
-                        closed.append({"symbol": sym, "reason": "PROFIT_TARGET", "price": current_price})
+                        forced_tag = " [FORCED_MARKET_OPEN]" if self._force_market_open else ""
+                        closed.append({
+                            "symbol": sym,
+                            "reason": exit_reason,
+                            "price": current_price,
+                            "forced_market_open": self._force_market_open,
+                        })
                         self._log_event(
-                            "AUTO_SELL_TARGET",
+                            event_type,
                             sym,
-                            f"Profit target reached for {sym} at ₹{current_price:.2f} (Target was ₹{pos.target:.2f}). Closed {pos.quantity} shares.",
-                            {"realized_pnl": trade.realized_pnl},
+                            f"{exit_msg}{forced_tag}",
+                            {
+                                "realized_pnl": trade.realized_pnl,
+                                "reason": exit_reason,
+                                "forced_market_open": self._force_market_open,
+                            },
                         )
                 except Exception as e:
-                    logger.error(f"Failed to execute target sell for {sym}: {e}")
+                    logger.error(f"Failed to execute {exit_reason} sell for {sym}: {e}")
 
         return closed
 

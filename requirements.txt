@@ -33,4 +33,4 @@ plotly>=5.22.0
 # Testing & Quality Assurance
 pytest>=8.1.0
 pytest-cov>=5.0.0
-httpx2>=2.16.0
+httpx==0.28.1

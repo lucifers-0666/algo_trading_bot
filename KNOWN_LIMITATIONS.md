@@ -7,8 +7,8 @@
 
 ## 1. Capital & Sizing Realities
 - **Virtual Starting Capital:** ₹10,000 INR.
-- **Risk per Trade (2.0%):** ₹200 risk budget per trade on initial capital.
-- **Whole Share Constraints:** NSE cash equities require integer shares (fractional shares do not exist in Indian markets). High-priced stocks (e.g. MRF at ₹1,30,000, Honeywell Automation at ₹45,000, or TCS at ₹3,800) cannot be traded within a 2.0% risk budget or 25% max position allocation on ₹10,000 capital. The risk engine will automatically reject candidate signals where even a 1-share position exceeds the risk budget or cash ceiling.
+- **Risk per Trade (0.5%):** ₹50 risk budget per trade on initial capital. Max 2 simultaneous open positions, 25% single-stock allocation cap, and 10 bps realistic slippage model.
+- **Whole Share Constraints:** NSE cash equities require integer shares (fractional shares do not exist in Indian markets). High-priced stocks (e.g. MRF at ₹1,30,000, Honeywell Automation at ₹45,000, or TCS at ₹3,800) cannot be traded within a 0.5% risk budget or 25% max position allocation on ₹10,000 capital. The risk engine will automatically reject candidate signals where even a 1-share position exceeds the risk budget or cash ceiling.
 - **Transaction Cost Drag:** Flat broker fees (e.g. ₹20/order) plus statutory taxes (STT 0.1%, Stamp Duty 0.0015%, GST 18%, Exchange charges 0.00297%) represent a high percentage on very small trade sizes (~₹2,000 position with ₹20 buy + ₹20 sell = 2% cost drag immediately). Small-account swing trading faces significant structural friction unless zero-brokerage delivery models are selected.
 
 ## 2. Market Data & Universe Boundaries

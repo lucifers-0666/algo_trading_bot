@@ -47,6 +47,7 @@ def evaluate_feed_freshness(
     source_type: Optional[str] = None,
     is_configured: Optional[bool] = None,
     is_connected: Optional[bool] = None,
+    force_market_open: bool = False,
 ) -> FreshnessReport:
     """Evaluates whether the market feed is current or stale, reporting exact provider status."""
     src = (source_type or "").upper()
@@ -56,7 +57,7 @@ def evaluate_feed_freshness(
     else:
         now_ist = now_ist.astimezone(IST)
 
-    market_open = is_nse_market_open(now_ist)
+    market_open = force_market_open or is_nse_market_open(now_ist)
 
     # 1. Check Explicit Synthetic / Historical Isolation
     if src == "SYNTHETIC":
@@ -81,7 +82,7 @@ def evaluate_feed_freshness(
             message="Offline historical CSV dataset loaded. No real-time tick streaming.",
         )
 
-    # 2. Check Provider Configuration
+    # 2. Check Provider Configuration & Connectivity
     if is_configured is False:
         return FreshnessReport(
             status=FeedStatus.NOT_CONFIGURED,
@@ -89,6 +90,22 @@ def evaluate_feed_freshness(
             latency_seconds=999999.0,
             is_market_open=market_open,
             message="Provider credentials unconfigured. Operating in safe standby mode.",
+        )
+    if is_connected is False:
+        return FreshnessReport(
+            status=FeedStatus.DISCONNECTED,
+            is_actionable=False,
+            latency_seconds=999999.0,
+            is_market_open=market_open,
+            message="Data feed disconnected. Reconnecting to live market exchange stream.",
+        )
+    if src in ("UNAVAILABLE", "ERROR"):
+        return FreshnessReport(
+            status=FeedStatus.DISCONNECTED,
+            is_actionable=False,
+            latency_seconds=999999.0,
+            is_market_open=market_open,
+            message=f"Data feed source is {src}. Live trading halted.",
         )
 
     # 3. Missing Update Timestamps Fail Closed During Market Hours

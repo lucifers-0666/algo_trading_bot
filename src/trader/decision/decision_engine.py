@@ -45,6 +45,11 @@ class DecisionDossier(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(IST))
     human_confirmation_required: bool = True
 
+    @property
+    def conviction_score(self) -> float:
+        """Alias for composite_score."""
+        return self.composite_score
+
 
 class DecisionEngine:
     """Evaluates multi-model confluence to produce actionable paper trading dossiers."""
@@ -60,6 +65,79 @@ class DecisionEngine:
         self.protection_manager = protection_manager or RiskProtectionManager()
         self.intelligence_engine = intelligence_engine
         self.min_composite_score = min_composite_score
+
+    def evaluate(
+        self,
+        symbol: str,
+        strategy_name: str = "baseline",
+        provider: Any = None,
+        portfolio: Optional[PortfolioState] = None,
+        open_positions: Optional[List[Position]] = None,
+    ) -> DecisionDossier:
+        """Evaluates a candidate symbol against historical candle closes using the active strategy.
+        Guarantees bar close (t) signal calculation for next-bar open (t+1) paper execution.
+        """
+        sym = symbol.strip().upper()
+        candles = []
+        if provider is not None and hasattr(provider, "get_historical_candles"):
+            try:
+                candles = provider.get_historical_candles(sym)
+            except Exception as e:
+                logger.warning(f"Failed to fetch historical candles for {sym}: {e}")
+
+        from trader.strategies.baseline import BaselineSwingStrategy
+        from trader.strategies.momentum import MomentumStrategy
+        from trader.strategies.breakout import BreakoutStrategy
+        from trader.indicators.technical import TechnicalIndicatorEngine
+
+        strat_lower = (strategy_name or "baseline").lower()
+        if strat_lower == "momentum":
+            strategy = MomentumStrategy()
+        elif strat_lower == "breakout":
+            strategy = BreakoutStrategy()
+        else:
+            strategy = BaselineSwingStrategy()
+
+        strategy_sig = None
+        price = 0.0
+        stop_loss = 0.0
+        target = None
+
+        if candles and len(candles) >= 10:
+            df = TechnicalIndicatorEngine.candles_to_dataframe(candles)
+            df = TechnicalIndicatorEngine.add_all_indicators(df)
+            strategy_sig = strategy.evaluate_entry(df)
+            last_bar = candles[-1]
+            price = last_bar.close
+            if strategy_sig and strategy_sig.suggested_stop_loss:
+                stop_loss = strategy_sig.suggested_stop_loss
+            else:
+                stop_loss = round(price * 0.97, 2)
+            if strategy_sig and strategy_sig.suggested_target:
+                target = strategy_sig.suggested_target
+            else:
+                target = round(price * 1.06, 2)
+        else:
+            if provider is not None and hasattr(provider, "get_latest_quote"):
+                try:
+                    q = provider.get_latest_quote(sym)
+                    price = q.ltp
+                except Exception:
+                    price = 1000.0
+            else:
+                price = 1000.0
+            stop_loss = round(price * 0.97, 2)
+            target = round(price * 1.06, 2)
+
+        return self.evaluate_candidate(
+            symbol=sym,
+            price=price,
+            stop_loss=stop_loss,
+            target=target,
+            strategy_signal=strategy_sig,
+            portfolio=portfolio,
+            open_positions=open_positions,
+        )
 
     def evaluate_candidate(
         self,

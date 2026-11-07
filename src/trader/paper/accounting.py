@@ -110,7 +110,13 @@ class PortfolioAccountant:
             self.portfolio_repo.save_snapshot(state)
         return state
 
-    def apply_fill(self, trade: Trade) -> None:
+    def apply_fill(
+        self,
+        trade: Trade,
+        stop_loss: Optional[float] = None,
+        target: Optional[float] = None,
+        trailing_stop_atr_mult: Optional[float] = None,
+    ) -> None:
         """Apply a simulated fill atomically with respect to in-memory ledger checks.
 
         Validate the complete fill before changing cash or positions. In particular,
@@ -141,6 +147,10 @@ class PortfolioAccountant:
                     quantity=trade.quantity,
                     average_entry_price=trade.price,
                     current_price=trade.price,
+                    stop_loss=stop_loss,
+                    target=target,
+                    highest_price=trade.price,
+                    trailing_stop_atr_mult=trailing_stop_atr_mult,
                 )
                 self.positions[sym] = new_pos
                 if self.position_repo:
@@ -153,6 +163,14 @@ class PortfolioAccountant:
                 pos.quantity = total_qty
                 pos.average_entry_price = round(avg_price, 2)
                 pos.current_price = trade.price
+                if stop_loss is not None:
+                    pos.stop_loss = stop_loss
+                if target is not None:
+                    pos.target = target
+                if trailing_stop_atr_mult is not None:
+                    pos.trailing_stop_atr_mult = trailing_stop_atr_mult
+                if trade.price > pos.highest_price:
+                    pos.highest_price = trade.price
                 if self.position_repo:
                     self.position_repo.save_position(pos)
         elif trade.side == OrderSide.SELL:
@@ -193,6 +211,16 @@ class PortfolioAccountant:
                 if self.position_repo:
                     self.position_repo.save_position(pos)
         self.unrealized_pnl = round(unrealized, 2)
+        self.get_portfolio_state()
+
+    def update_unrealized_pnl(self, symbol: str, current_price: float) -> None:
+        """Updates a single position's market price and recalculates portfolio unrealized PnL."""
+        sym = symbol.strip().upper()
+        if sym in self.positions:
+            self.positions[sym].update_market_price(current_price)
+            if self.position_repo:
+                self.position_repo.save_position(self.positions[sym])
+        self.unrealized_pnl = round(sum(p.unrealized_pnl for p in self.positions.values()), 2)
         self.get_portfolio_state()
 
     def reset_account(self, confirmation: bool = False) -> bool:
