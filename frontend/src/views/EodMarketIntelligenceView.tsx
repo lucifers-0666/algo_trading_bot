@@ -123,7 +123,7 @@ export function EodMarketIntelligenceView({ onNavigate }: Props) {
         </div>
         <div className="eod-table-wrap">
           <table className="eod-table">
-            <thead><tr><th>SYMBOL / PATTERN</th><th>TRIGGER</th><th>STOP LOSS</th><th>QTY</th><th>TICK</th><th>TARGET 1</th><th>TARGET 2</th><th>NET P&amp;L T1</th><th>NET P&amp;L T2</th><th>R:R</th><th>PLANNED RISK</th><th>ACTION</th></tr></thead>
+            <thead><tr><th>SYMBOL / PATTERN</th><th>TRIGGER</th><th>STOP LOSS</th><th>QTY</th><th>TICK</th><th>TARGET 1</th><th>TARGET 2</th><th>NET P&amp;L T1</th><th>NET P&amp;L T2</th><th>R:R</th><th>PLANNED RISK</th><th>REGIME STATUS</th><th>ACTION</th></tr></thead>
             <tbody>
               {candidateRows.map((candidate: EODCandidate) => (
                 <tr key={candidate.symbol}>
@@ -138,10 +138,11 @@ export function EodMarketIntelligenceView({ onNavigate }: Props) {
                   <td className="eod-long-text">{inr(candidate.projected_net_pnl_target_2_inr)}</td>
                   <td>2R / 3R</td>
                   <td>{inr(candidate.planned_risk_inr)}</td>
-                  <td><button className="eod-button eod-button-review" onClick={() => onNavigate("Trading terminal", candidate.symbol)}>Review setup <ArrowUpRight size={13} /></button></td>
+                  <td><span className={candidate.status === "PENDING_REVIEW" ? "eod-long-text" : "eod-muted"}>{candidate.status.replaceAll("_", " ")}</span></td>
+                  <td><button className="eod-button eod-button-review" disabled={candidate.status !== "PENDING_REVIEW"} onClick={() => onNavigate("Trading terminal", candidate.symbol)}>{candidate.status === "PENDING_REVIEW" ? "Review setup" : "Watch only"} <ArrowUpRight size={13} /></button></td>
                 </tr>
               ))}
-              {!candidateRows.length && <tr><td colSpan={12} className="eod-empty">No qualified setups in the latest report. No-trade is a valid outcome.</td></tr>}
+              {!candidateRows.length && <tr><td colSpan={13} className="eod-empty">No qualified setups in the latest report. No-trade is a valid outcome.</td></tr>}
             </tbody>
           </table>
         </div>
