@@ -108,7 +108,7 @@ export function EodMarketIntelligenceView({ onNavigate }: Props) {
             </div>
             <div className="eod-facts"><span>Advance-decline breadth: {market.market_breadth_pct.toFixed(1)}%</span>{market.bias.reasons.map((fact) => <span key={fact}>{fact}</span>)}</div>
             {market.data_warning && <p className="eod-warning"><AlertTriangle size={14} /> {market.data_warning}</p>}
-            <div className="eod-muted">Provider: {data?.provider} · Universe: {data?.universe_version} · Generated: {data?.generated_at_ist}</div>
+            <div className="eod-muted">Provider: {data?.provider} · Broker cost profile: {market.broker_profile} · Universe: {data?.universe_version} · Generated: {data?.generated_at_ist}</div>
           </>
         )}
       </section>
