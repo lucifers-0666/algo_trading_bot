@@ -42,36 +42,47 @@ import type {
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 export function getWsTokenParam(): string {
-  const token =
-    (import.meta.env.VITE_API_TOKEN as string | undefined) ||
-    (typeof window !== "undefined" ? window.localStorage.getItem("northstar_api_token") : null);
-  return token ? `?token=${encodeURIComponent(token)}` : "";
+  // Same-origin WebSocket connections carry the HttpOnly session cookie automatically.
+  return "";
 }
 
-function getAuthHeaders(): Record<string, string> {
-  const token =
-    (import.meta.env.VITE_API_TOKEN as string | undefined) ||
-    (typeof window !== "undefined" ? window.localStorage.getItem("northstar_api_token") : null);
-  if (token) {
-    return {
-      Authorization: `Bearer ${token}`,
-      "X-API-Token": token,
-    };
+let localSessionPromise: Promise<void> | null = null;
+
+async function establishLocalSession(): Promise<void> {
+  if (!localSessionPromise) {
+    localSessionPromise = (async () => {
+      const token = window.prompt("Enter the local workstation access token");
+      if (!token) throw new Error("Local workstation authentication was cancelled.");
+      const response = await fetch(`${API_BASE}/v1/auth/session`, {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      if (!response.ok) throw new Error("Local workstation authentication failed.");
+    })().finally(() => {
+      localSessionPromise = null;
+    });
   }
-  return {};
+  return localSessionPromise;
 }
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
-  const response = await fetch(url, {
+  const request = () => fetch(url, {
+    credentials: "include",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
       ...(options?.headers ?? {}),
     },
     ...options,
   });
+  let response = await request();
+  if (response.status === 401 && typeof window !== "undefined") {
+    await establishLocalSession();
+    response = await request();
+  }
 
   if (!response.ok) {
     let errDetail = `HTTP ${response.status}`;
