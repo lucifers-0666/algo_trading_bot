@@ -2252,3 +2252,5 @@ tr:hover td {
   .eod-session-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .eod-glass { padding:12px; }
 }
+
+.eod-button:disabled { opacity: .42; cursor: not-allowed; }
