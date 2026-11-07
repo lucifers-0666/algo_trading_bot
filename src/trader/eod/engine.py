@@ -147,16 +147,18 @@ def classify_eod_regime(
     close = float(row["close"])
     sma20_last, sma50_last = float(sma20.iloc[-1]), float(sma50.iloc[-1])
     positive = 0
+    valid_sector_count = 0
     for frame in sector_indices.values():
         sector = _indicators(_validate_frame(frame, "sector index"))
         sr = sector.iloc[-1]
         if "timestamp" in sector.columns and "timestamp" in nifty.columns and sector.iloc[-1]["timestamp"].date() != nifty.iloc[-1]["timestamp"].date():
             continue
+        valid_sector_count += 1
         sector_sma20 = sector["close"].rolling(20, min_periods=20).mean().iloc[-1]
         sector_sma50 = sector["close"].rolling(50, min_periods=50).mean().iloc[-1]
         if float(sr["close"]) > float(sector_sma20) > float(sector_sma50):
             positive += 1
-    total = len(sector_indices)
+    total = valid_sector_count
     breadth = positive / total if total else 0.0
     vix_session = vix.iloc[-1]["timestamp"].date() if "timestamp" in vix.columns else None
     nifty_session = nifty.iloc[-1]["timestamp"].date() if "timestamp" in nifty.columns else None
@@ -292,7 +294,7 @@ def build_eod_report(
     candidates = candidates[:max_candidates]
     return EODReport(
         session_date=session_date, next_session_plan="Conditional long setups for the next NSE session; revalidate gaps and risk before paper execution.",
-        bias=regime, universe_requested=len(stock_daily), universe_covered=len(stock_daily) - len(rejected),
+        bias=regime, universe_requested=len(stock_daily), universe_covered=len(stock_daily),
         candidates=candidates, rejected_symbols=rejected, risk_per_trade_pct=risk_per_trade_pct*100,
         virtual_equity_inr=virtual_equity_inr,
         advancers=advancers, decliners=decliners, unchanged=unchanged,
