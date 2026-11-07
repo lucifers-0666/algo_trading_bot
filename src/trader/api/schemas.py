@@ -99,4 +99,17 @@ class ForecastEvaluateRequest(BaseModel):
     symbols: Optional[List[str]] = None
 
 
+class TradingViewWebhookPayload(BaseModel):
+    symbol: str
+    side: str = Field(..., description="'BUY' or 'SELL'")
+    segment: Optional[str] = Field(default="EQ_SWING", description="'EQ_INTRADAY', 'EQ_SWING', 'FUTURES', 'OPTIONS'")
+    price: Optional[float] = Field(default=None, description="Trigger/signal price")
+    stop_loss: Optional[float] = Field(default=None, description="Stop loss price level")
+    target: Optional[float] = Field(default=None, description="Profit target price level")
+    quantity: Optional[int] = Field(default=None, gt=0, description="Optional target order quantity")
+    strategy_name: Optional[str] = Field(default="TradingView_PineScript", description="PineScript strategy or alert identifier")
+    token: Optional[str] = Field(default=None, description="Optional security token")
+
+
+
 

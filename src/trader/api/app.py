@@ -63,7 +63,7 @@ from trader.risk.checks import RiskManager
 from trader.paper.orders import OrderManager
 from trader.paper.accounting import PortfolioAccountant
 from trader.paper.broker import VirtualPaperBroker
-from trader.providers.csv_provider import CSVDataProvider
+from trader.providers import CSVDataProvider, YFinanceAdapter, NSELiveAdapter
 from trader.ml.forecaster import NextSessionForecaster, NextSessionForecast
 from trader.backtest.costs import (
     simulate_roundtrip_trade,
@@ -105,6 +105,7 @@ from trader.api.schemas import (
     ProviderSelectRequest,
     CostSimulateRequest,
     ForecastEvaluateRequest,
+    TradingViewWebhookPayload,
 )
 
 app = FastAPI(
@@ -234,13 +235,17 @@ hyperopt_runner = StrategyHyperoptRunner(initial_capital=10000.0)
 # Providers (Broker-independent pipeline)
 csv_path = Path("data/historical")
 csv_provider = CSVDataProvider(data_path=csv_path) if csv_path.exists() else CSVDataProvider()
+yfinance_adapter = YFinanceAdapter()
+nse_live_adapter = NSELiveAdapter()
 
-ACTIVE_DATA_PROVIDER = os.getenv("DATA_PROVIDER", "csv").strip().lower()
+ACTIVE_DATA_PROVIDER = os.getenv("DATA_PROVIDER", "yfinance").strip().lower()
 forecaster = NextSessionForecaster()
 
 def get_market_provider():
-    global ACTIVE_DATA_PROVIDER, csv_provider
-    return csv_provider
+    global ACTIVE_DATA_PROVIDER, csv_provider, yfinance_adapter
+    if ACTIVE_DATA_PROVIDER == "csv":
+        return csv_provider
+    return yfinance_adapter
 
 scanner_engine = MarketScannerEngine(provider=get_market_provider())
 universe_mgr = UniverseManager()
@@ -424,6 +429,96 @@ def select_market_data_provider(req: ProviderSelectRequest) -> Dict[str, Any]:
         "status": "success",
         "active_provider": ACTIVE_DATA_PROVIDER,
         "resolved_source": active.source_type.value if hasattr(active, "source_type") else "UNKNOWN",
+    }
+
+
+# -----------------------------------------------------------------------------
+# Option Chain & Participant Positioning Endpoints (100% Free & Live)
+# -----------------------------------------------------------------------------
+@app.get("/api/v1/market/option-chain", tags=["market"])
+def get_option_chain_endpoint(
+    symbol: str = Query("NIFTY", description="Index or equity symbol"),
+    expiry: Optional[str] = Query(None, description="Expiration date e.g. '09-Nov-2026'"),
+    bypass_cache: bool = Query(False, description="Force fresh network fetch"),
+) -> Dict[str, Any]:
+    """Fetches real-time NSE Option Chain data (CE/PE LTP, OI, IV, PCR, Max Pain) without broker credentials."""
+    return nse_live_adapter.get_option_chain(symbol=symbol, expiry_date=expiry, bypass_cache=bypass_cache)
+
+
+@app.get("/api/v1/market/participant-oi", tags=["market"])
+def get_participant_oi_endpoint() -> Dict[str, Any]:
+    """Fetches FII, DII, Pro, and Client-wise participant Open Interest (OI) from NSE archives."""
+    return nse_live_adapter.get_participant_oi()
+
+
+# -----------------------------------------------------------------------------
+# TradingView Webhook Integration Endpoint
+# -----------------------------------------------------------------------------
+@app.post("/api/webhook/tradingview", tags=["tradingview"])
+@app.post("/api/v1/webhook/tradingview", tags=["tradingview"])
+def receive_tradingview_webhook(payload: TradingViewWebhookPayload) -> Dict[str, Any]:
+    """Ingests TradingView PineScript alerts and dispatches virtual paper executions."""
+    sym = payload.symbol.strip().upper()
+    side_str = payload.side.strip().upper()
+    side = OrderSide.BUY if side_str == "BUY" else OrderSide.SELL
+
+    # Determine execution price and risk-managed stop loss
+    price = payload.price
+    if price is None or price <= 0.0:
+        try:
+            quote = get_market_provider().get_latest_quote(sym)
+            price = quote.ltp
+        except Exception:
+            price = 1000.0
+
+    stop_loss = payload.stop_loss
+    if stop_loss is None:
+        stop_loss = round(price * 0.98, 2) if side == OrderSide.BUY else round(price * 1.02, 2)
+
+    target = payload.target
+    if target is None:
+        target = round(price * 1.04, 2) if side == OrderSide.BUY else round(price * 0.96, 2)
+
+    order, trade, risk = paper_broker.submit_simulated_order(
+        symbol=sym,
+        side=side,
+        price=price,
+        stop_loss=stop_loss,
+        target=target,
+        quantity=payload.quantity,
+        order_type=OrderType.MARKET,
+    )
+
+    audit_repo.log_event(
+        event_type="TRADINGVIEW_WEBHOOK_EXECUTION",
+        symbol=sym,
+        details={
+            "strategy": payload.strategy_name,
+            "order_id": order.order_id,
+            "side": side_str,
+            "segment": payload.segment,
+            "approved": risk.approved,
+            "order_status": order.status.value,
+            "fill_price": trade.price if trade else None,
+            "stop_loss": stop_loss,
+            "target": target,
+        },
+    )
+
+    return {
+        "status": "FILLED" if trade else ("REJECTED" if not risk.approved else order.status.value),
+        "source": "TRADINGVIEW_WEBHOOK",
+        "strategy_name": payload.strategy_name,
+        "order_id": order.order_id,
+        "symbol": sym,
+        "side": side_str,
+        "segment": payload.segment,
+        "price": price,
+        "fill_price": trade.price if trade else None,
+        "quantity": trade.quantity if trade else order.quantity,
+        "risk_approved": risk.approved,
+        "rejection_reasons": risk.rejection_reasons if not risk.approved else [],
+        "timestamp": datetime.now(IST).isoformat(),
     }
 
 

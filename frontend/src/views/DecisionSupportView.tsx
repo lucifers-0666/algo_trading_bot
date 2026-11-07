@@ -79,42 +79,42 @@ export function DecisionSupportView({
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div>
-            <label className="text-xs font-medium text-muted">Symbol:</label>
+            <label className="text-xs font-medium text-slate-400">Symbol:</label>
             <input
               type="text"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground font-mono mt-1"
+              className="w-full bg-[#0b0f19] border border-[#1e2638] rounded-md px-3 py-1.5 text-xs text-slate-100 font-mono mt-1 outline-none focus:border-sky-500"
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted">Estimated Entry (₹):</label>
+            <label className="text-xs font-medium text-slate-400">Estimated Entry (₹):</label>
             <input
               type="number"
               value={price}
               onChange={(e) => setPrice(parseFloat(e.target.value) || 0)}
-              className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground font-mono mt-1"
+              className="w-full bg-[#0b0f19] border border-[#1e2638] rounded-md px-3 py-1.5 text-xs text-slate-100 font-mono mt-1 outline-none focus:border-sky-500"
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted">Stop Loss (₹):</label>
+            <label className="text-xs font-medium text-slate-400">Stop Loss (₹):</label>
             <input
               type="number"
               value={stopLoss}
               onChange={(e) => setStopLoss(parseFloat(e.target.value) || 0)}
-              className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground font-mono mt-1"
+              className="w-full bg-[#0b0f19] border border-[#1e2638] rounded-md px-3 py-1.5 text-xs text-slate-100 font-mono mt-1 outline-none focus:border-sky-500"
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-muted">Profit Target (₹):</label>
+            <label className="text-xs font-medium text-slate-400">Profit Target (₹):</label>
             <input
               type="number"
               value={target}
               onChange={(e) => setTarget(parseFloat(e.target.value) || 0)}
-              className="w-full bg-background border border-border rounded-md px-3 py-1.5 text-xs text-foreground font-mono mt-1"
+              className="w-full bg-[#0b0f19] border border-[#1e2638] rounded-md px-3 py-1.5 text-xs text-slate-100 font-mono mt-1 outline-none focus:border-sky-500"
             />
           </div>
         </div>
@@ -123,7 +123,7 @@ export function DecisionSupportView({
           <button
             onClick={() => evalMutation.mutate()}
             disabled={evalMutation.isPending || price <= 0 || stopLoss <= 0}
-            className="px-5 py-2 bg-primary text-background text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded-md transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-xs"
           >
             {evalMutation.isPending ? "Synthesizing Models..." : "Evaluate Decision Confluence"}
             <ArrowRight className="h-3.5 w-3.5" />
@@ -284,7 +284,7 @@ export function DecisionSupportView({
                 <button
                   onClick={() => setConfirmationStep(true)}
                   disabled={dossier.suggested_quantity <= 0 || !dossier.risk_approved}
-                  className="px-6 py-2.5 bg-primary text-background text-xs font-bold rounded-md hover:bg-primary/90 transition-colors disabled:opacity-40"
+                  className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-md transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
                 >
                   Authorize Simulated Paper Trade
                 </button>
@@ -292,14 +292,14 @@ export function DecisionSupportView({
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setConfirmationStep(false)}
-                    className="px-4 py-2 bg-secondary text-foreground text-xs rounded-md border border-border hover:bg-surface-elevated"
+                    className="px-4 py-2 bg-[#161e30] hover:bg-[#1c263c] text-slate-200 text-xs rounded-md border border-[#1e2638] cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => execMutation.mutate()}
                     disabled={execMutation.isPending}
-                    className="px-6 py-2 bg-emerald-500 text-background text-xs font-bold rounded-md hover:bg-emerald-400 transition-colors flex items-center gap-1.5"
+                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <Check className="h-4 w-4" />
                     {execMutation.isPending ? "Executing Virtual Fill..." : "Confirm & Execute Simulated Buy"}

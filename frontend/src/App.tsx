@@ -292,6 +292,8 @@ export default function App() {
           <div className="breadcrumbs">
             <span>Workspace</span>
             <span className="crumb-slash">/</span>
+            <span>{currentGroup?.group.split(". ")[1] ?? "Console"}</span>
+            <span className="crumb-slash">/</span>
             <strong>{activePage}</strong>
           </div>
 
@@ -341,8 +343,8 @@ export default function App() {
 
           {/* 6-Section Sub-Navigation Pill Bar */}
           {currentGroup && currentGroup.items.length > 1 && (
-            <div className="flex items-center gap-2 p-1.5 bg-slate-900/60 rounded-xl border border-slate-800 overflow-x-auto mb-4">
-              <span className="text-[11px] font-bold text-slate-400 px-2 shrink-0 uppercase tracking-wider">
+            <div className="flex items-center gap-2 p-1.5 bg-[#0d131f] rounded-lg border border-[#1e2638] overflow-x-auto mb-4">
+              <span className="text-[10px] font-bold text-slate-500 px-2.5 shrink-0 uppercase tracking-wider">
                 {currentGroup.group.split(". ")[1] || currentGroup.group}:
               </span>
               <div className="flex items-center gap-1.5 flex-nowrap">
@@ -353,13 +355,13 @@ export default function App() {
                     <button
                       key={item.label}
                       onClick={() => handleNavigate(item.label)}
-                      className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
                         isActive
-                          ? "bg-indigo-600 text-white shadow-sm"
-                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/80"
+                          ? "bg-[#1e293b] text-[#38bdf8] border border-sky-500/30 shadow-xs font-semibold"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-[#161e30] border border-transparent"
                       }`}
                     >
-                      <Icon size={13} />
+                      <Icon size={13} strokeWidth={isActive ? 2.2 : 1.8} />
                       <span>{item.label}</span>
                     </button>
                   );

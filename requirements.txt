@@ -13,13 +13,14 @@ joblib>=1.4.0
 # Machine Learning & Quantitative Analytics
 scikit-learn>=1.4.0
 
+# Free Original Market Data Pipeline (Zero Broker Login)
+yfinance>=0.2.50
+nselib>=0.9.0
+
 # Networking & Ingestion
 requests>=2.31.0
 websockets>=12.0
-smartapi-python>=1.5.5
 logzero>=1.7.0
-websocket-client>=1.8.0
-pyotp>=2.9.0
 
 # Local API for the React frontend
 fastapi>=0.115.0,<1.0.0

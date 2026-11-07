@@ -87,8 +87,8 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
       <svg viewBox={`0 0 ${svgWidth} ${height}`} className="equity-svg">
         <defs>
           <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={isProfitable ? "#207353" : "#b95d5d"} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={isProfitable ? "#207353" : "#b95d5d"} stopOpacity="0.0" />
+            <stop offset="0%" stopColor={isProfitable ? "#10b981" : "#f43f5e"} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={isProfitable ? "#10b981" : "#f43f5e"} stopOpacity="0.0" />
           </linearGradient>
         </defs>
 
@@ -98,10 +98,10 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
           y1={initialY}
           x2={svgWidth - padding.right}
           y2={initialY}
-          stroke="#b8c2bc"
-          strokeDasharray="3 3"
+          stroke="#334155"
+          strokeDasharray="4 4"
         />
-        <text x={svgWidth - padding.right} y={initialY - 4} fill="#8a968e" fontSize={9} textAnchor="end">
+        <text x={svgWidth - padding.right} y={initialY - 4} fill="#94a3b8" fontSize={9.5} fontFamily="JetBrains Mono, monospace" textAnchor="end">
           Base: ₹{initialCapital.toLocaleString()}
         </text>
 
@@ -112,21 +112,21 @@ export const EquityCurveChart: React.FC<EquityCurveChartProps> = ({
         <path
           d={linePath}
           fill="none"
-          stroke={isProfitable ? "#207353" : "#b95d5d"}
-          strokeWidth={2}
+          stroke={isProfitable ? "#10b981" : "#f43f5e"}
+          strokeWidth={2.2}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
         {/* Start and end points */}
-        <circle cx={getX(0)} cy={getY(chartData[0].equity)} r={3} fill="#207353" />
-        <circle cx={lastX} cy={getY(finalEquity)} r={3.5} fill={isProfitable ? "#207353" : "#b95d5d"} />
+        <circle cx={getX(0)} cy={getY(chartData[0].equity)} r={3} fill="#10b981" />
+        <circle cx={lastX} cy={getY(finalEquity)} r={3.5} fill={isProfitable ? "#10b981" : "#f43f5e"} />
 
         {/* Date labels */}
-        <text x={padding.left} y={height - 5} fill="#8a968e" fontSize={9}>
+        <text x={padding.left} y={height - 5} fill="#64748b" fontSize={9} fontFamily="JetBrains Mono, monospace">
           {chartData[0].date}
         </text>
-        <text x={lastX} y={height - 5} fill="#8a968e" fontSize={9} textAnchor="end">
+        <text x={lastX} y={height - 5} fill="#64748b" fontSize={9} fontFamily="JetBrains Mono, monospace" textAnchor="end">
           {chartData[chartData.length - 1].date}
         </text>
       </svg>
