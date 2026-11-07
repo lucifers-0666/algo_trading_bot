@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import os
+import secrets
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 from fastapi import (
     FastAPI,
     HTTPException,
+    Response,
     Query,
     Body,
     WebSocket,
@@ -157,8 +159,8 @@ def verify_api_token(
         token = authorization[7:].strip()
     elif x_api_token:
         token = x_api_token.strip()
-    elif "token" in request.query_params:
-        token = request.query_params.get("token")
+    else:
+        token = request.cookies.get("northstar_session")
 
     if not token or token != expected_token:
         raise HTTPException(
@@ -166,6 +168,38 @@ def verify_api_token(
             detail="Unauthorized: Invalid or missing API token.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+@app.post("/api/v1/auth/session", tags=["system"])
+def create_local_api_session(
+    request: Request,
+    response: Response,
+    payload: Dict[str, str] = Body(...),
+) -> Dict[str, bool]:
+    """Exchange a locally supplied workstation token for an HttpOnly session cookie."""
+    verify_localhost(request)
+    expected_token = os.getenv("NORTHSTAR_API_TOKEN")
+    if expected_token:
+        supplied = str(payload.get("token", ""))
+        if not supplied or not secrets.compare_digest(supplied, expected_token):
+            raise HTTPException(status_code=401, detail="Invalid local workstation token.")
+        response.set_cookie(
+            key="northstar_session",
+            value=expected_token,
+            httponly=True,
+            secure=False,  # local-only HTTP workstation; never expose this endpoint remotely
+            samesite="strict",
+            max_age=8 * 60 * 60,
+            path="/api",
+        )
+    return {"authenticated": True}
+
+
+@app.delete("/api/v1/auth/session", tags=["system"])
+def delete_local_api_session(request: Request, response: Response) -> Dict[str, bool]:
+    verify_localhost(request)
+    response.delete_cookie(key="northstar_session", path="/api")
+    return {"authenticated": False}
 
 
 async def verify_ws_auth(websocket: WebSocket) -> bool:
@@ -185,7 +219,7 @@ async def verify_ws_auth(websocket: WebSocket) -> bool:
         if auth and auth.lower().startswith("bearer "):
             token = auth[7:].strip()
         else:
-            token = websocket.headers.get("x-api-token")
+            token = websocket.headers.get("x-api-token") or websocket.cookies.get("northstar_session")
 
     if not token or token != expected_token:
         await websocket.close(
